@@ -169,6 +169,7 @@ enum Subcommand {
     Archive(SessionArchiveCommand),
 
     /// Permanently delete a saved session by id or session name.
+    #[clap(visible_alias = "del")]
     Delete(DeleteCommand),
 
     /// Unarchive a saved session by id or session name.
@@ -223,7 +224,6 @@ enum DebugSubcommand {
     /// Replay a rollout trace bundle and write reduced state JSON.
     #[clap(hide = true)]
     TraceReduce(DebugTraceReduceCommand),
-
 }
 
 #[derive(Debug, Parser)]

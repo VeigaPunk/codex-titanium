@@ -22,16 +22,12 @@ shell_snapshot = true
 skill_search = true
 workspace_dependencies = true
 concurrent_reasoning_summaries = true
-browser_use = false
-browser_use_external = false
-browser_use_full_cdp_access = false
 computer_use = false
 in_app_browser = false
 standalone_web_search = false
 memories = false
 external_agent_memory_import = false
 chronicle = false
-skill_mcp_dependency_install = false
 
 [features.multi_agent_v2]
 enabled = true

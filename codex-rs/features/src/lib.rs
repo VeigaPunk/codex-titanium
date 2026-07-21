@@ -25,7 +25,6 @@ pub use feature_configs::NetworkProxyConfigToml;
 pub use feature_configs::NetworkProxyDomainPermissionToml;
 pub use feature_configs::NetworkProxyModeToml;
 pub use feature_configs::NetworkProxyUnixSocketPermissionToml;
-use feature_configs::RemovedAppsMcpPathOverrideConfigToml;
 pub use feature_configs::RolloutBudgetConfigToml;
 pub use feature_configs::TokenBudgetConfigToml;
 use legacy::LegacyFeatureToggles;
@@ -143,14 +142,8 @@ pub enum Feature {
     SpawnCsv,
     /// Enable apps.
     Apps,
-    /// Removed compatibility flag for the legacy Apps MCP path override.
-    AppsMcpPathOverride,
     /// Removed compatibility flag retained as a no-op now that tool_search is always enabled.
     ToolSearch,
-    /// Removed compatibility flag. MCP tools are always deferred when tool_search is available.
-    ToolSearchAlwaysDeferMcpTools,
-    /// Expose MCP model-visible namespaces without the legacy `mcp__` prefix.
-    NonPrefixedMcpToolNames,
     /// Enable discoverable tool suggestions for apps.
     ToolSuggest,
     /// Enable plugins.
@@ -159,18 +152,6 @@ pub enum Feature {
     ExecutorCapabilityDiscovery,
     /// Removed compatibility flag for plugin-bundled lifecycle hooks.
     PluginHooks,
-    /// Allow Browser Use agent integration in desktop apps.
-    ///
-    /// Requirements-only gate: this should be set from requirements, not user config.
-    BrowserUse,
-    /// Allow Browser Use integration to access the full Chrome DevTools Protocol surface.
-    ///
-    /// Requirements-only gate: this should be set from requirements, not user config.
-    BrowserUseFullCdpAccess,
-    /// Allow Browser Use integration with external browsers.
-    ///
-    /// Requirements-only gate: this should be set from requirements, not user config.
-    BrowserUseExternal,
     /// Enable the PS-backed remote plugin catalog.
     RemotePlugin,
     /// Enable remote plugin sharing flows.
@@ -185,8 +166,6 @@ pub enum Feature {
     ItemIds,
     /// Request sequential cutoff reasoning summary delivery.
     ConcurrentReasoningSummaries,
-    /// Allow prompting and installing missing MCP dependencies.
-    SkillMcpDependencyInstall,
     /// Run cheap skill-search methods in shadow mode and emit experiment metrics.
     SkillSearch,
     /// Removed compatibility flag for deleted skill env var dependency prompting.
@@ -205,8 +184,6 @@ pub enum Feature {
     RolloutBudget,
     /// Add current-time reminders to model-visible context.
     CurrentTimeReminder,
-    /// Route MCP tool approval prompts through the MCP elicitation request path.
-    ToolCallMcpElicitation,
     /// Prompt Codex Apps connector auth failures through MCP URL elicitations.
     AuthElicitation,
     /// Enable personality selection in the TUI.
@@ -585,9 +562,6 @@ pub struct FeaturesToml {
     pub rollout_budget: Option<FeatureToml<RolloutBudgetConfigToml>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_time_reminder: Option<FeatureToml<CurrentTimeReminderConfigToml>>,
-    #[serde(default, rename = "apps_mcp_path_override", skip_serializing)]
-    #[schemars(skip)]
-    removed_apps_mcp_path_override: Option<FeatureToml<RemovedAppsMcpPathOverrideConfigToml>>,
     pub network_proxy: Option<FeatureToml<NetworkProxyConfigToml>>,
     /// Boolean feature toggles keyed by canonical or legacy feature name.
     #[serde(flatten)]
@@ -605,7 +579,6 @@ impl FeaturesToml {
     /// Removes compatibility-only inputs that no longer affect runtime
     /// behavior or belong in newly materialized config.
     pub fn clear_removed_compatibility_entries(&mut self) {
-        self.removed_apps_mcp_path_override = None;
         self.entries.remove("apps_mcp_path_override");
     }
 
@@ -644,7 +617,6 @@ impl FeaturesToml {
             token_budget,
             rollout_budget,
             current_time_reminder,
-            removed_apps_mcp_path_override: _,
             network_proxy,
             entries,
         } = self;
@@ -967,27 +939,9 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: true,
     },
     FeatureSpec {
-        id: Feature::AppsMcpPathOverride,
-        key: "apps_mcp_path_override",
-        stage: Stage::Removed,
-        default_enabled: false,
-    },
-    FeatureSpec {
         id: Feature::ToolSearch,
         key: "tool_search",
         stage: Stage::Removed,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::ToolSearchAlwaysDeferMcpTools,
-        key: "tool_search_always_defer_mcp_tools",
-        stage: Stage::Removed,
-        default_enabled: true,
-    },
-    FeatureSpec {
-        id: Feature::NonPrefixedMcpToolNames,
-        key: "non_prefixed_mcp_tool_names",
-        stage: Stage::UnderDevelopment,
         default_enabled: false,
     },
     FeatureSpec {
@@ -1019,24 +973,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         key: "plugin_hooks",
         stage: Stage::Removed,
         default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::BrowserUse,
-        key: "browser_use",
-        stage: Stage::Stable,
-        default_enabled: true,
-    },
-    FeatureSpec {
-        id: Feature::BrowserUseFullCdpAccess,
-        key: "browser_use_full_cdp_access",
-        stage: Stage::Stable,
-        default_enabled: true,
-    },
-    FeatureSpec {
-        id: Feature::BrowserUseExternal,
-        key: "browser_use_external",
-        stage: Stage::Stable,
-        default_enabled: true,
     },
     FeatureSpec {
         id: Feature::RemotePlugin,
@@ -1079,12 +1015,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         key: "concurrent_reasoning_summaries",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::SkillMcpDependencyInstall,
-        key: "skill_mcp_dependency_install",
-        stage: Stage::Stable,
-        default_enabled: true,
     },
     FeatureSpec {
         id: Feature::SkillSearch,
@@ -1156,12 +1086,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         id: Feature::CollaborationModes,
         key: "collaboration_modes",
         stage: Stage::Removed,
-        default_enabled: true,
-    },
-    FeatureSpec {
-        id: Feature::ToolCallMcpElicitation,
-        key: "tool_call_mcp_elicitation",
-        stage: Stage::Stable,
         default_enabled: true,
     },
     FeatureSpec {

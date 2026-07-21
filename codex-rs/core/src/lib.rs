@@ -54,7 +54,6 @@ mod hook_runtime;
 mod image_preparation;
 mod installation_id;
 pub(crate) mod mcp;
-mod mcp_skill_dependencies;
 mod mcp_tool_approval_templates;
 mod mcp_tool_exposure;
 mod network_policy_decision;
@@ -87,6 +86,7 @@ mod session_prefix;
 mod session_startup_prewarm;
 pub mod skills;
 pub(crate) use skills::SkillInjections;
+#[cfg(test)]
 pub(crate) use skills::SkillMetadata;
 pub(crate) use skills::SkillsService;
 pub(crate) use skills::build_available_skills;

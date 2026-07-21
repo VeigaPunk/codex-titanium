@@ -28,7 +28,6 @@ pub(crate) struct SessionState {
     pub(crate) history: ContextManager,
     pub(crate) latest_rate_limits: Option<RateLimitSnapshot>,
     pub(crate) server_reasoning_included: bool,
-    pub(crate) mcp_dependency_prompted: HashSet<String>,
     pub(crate) additional_context: AdditionalContextStore,
     /// Settings used by the latest regular user turn, used for turn-to-turn
     /// model/realtime handling on subsequent regular turns (including full-context
@@ -65,7 +64,6 @@ impl SessionState {
             history,
             latest_rate_limits: None,
             server_reasoning_included: false,
-            mcp_dependency_prompted: HashSet::new(),
             additional_context: AdditionalContextStore::default(),
             previous_turn_settings: None,
             auto_compact_window: AutoCompactWindow::new_with_ids(auto_compact_window_ids),
@@ -233,17 +231,6 @@ impl SessionState {
 
     pub(crate) fn server_reasoning_included(&self) -> bool {
         self.server_reasoning_included
-    }
-
-    pub(crate) fn record_mcp_dependency_prompted<I>(&mut self, names: I)
-    where
-        I: IntoIterator<Item = String>,
-    {
-        self.mcp_dependency_prompted.extend(names);
-    }
-
-    pub(crate) fn mcp_dependency_prompted(&self) -> HashSet<String> {
-        self.mcp_dependency_prompted.clone()
     }
 
     pub(crate) fn set_session_startup_prewarm(

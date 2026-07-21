@@ -1275,10 +1275,7 @@ async fn maybe_request_mcp_tool_approval(
         None => {}
     }
 
-    let tool_call_mcp_elicitation_enabled = turn_context
-        .config
-        .features
-        .enabled(Feature::ToolCallMcpElicitation);
+    let tool_call_mcp_elicitation_enabled = false;
 
     if routes_approval_to_guardian_with_reviewer(turn_context, approvals_reviewer) {
         let review_id = new_guardian_review_id();
