@@ -32,7 +32,6 @@ memories = false
 external_agent_memory_import = false
 chronicle = false
 skill_mcp_dependency_install = false
-enable_mcp_apps = false
 
 [features.multi_agent_v2]
 enabled = true

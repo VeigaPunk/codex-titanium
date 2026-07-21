@@ -49,13 +49,13 @@ fn session_flags_layer_count(config: &Config) -> usize {
 }
 
 #[tokio::test]
-async fn apply_role_defaults_to_default_and_leaves_config_unchanged() {
+async fn apply_role_without_agent_type_leaves_config_unchanged() {
     let (_home, mut config) = test_config_with_cli_overrides(Vec::new()).await;
     let before = config.clone();
 
     apply_role_to_config(&mut config, /*role_name*/ None)
         .await
-        .expect("default role should apply");
+        .expect("no role should apply");
 
     assert_eq!(before, config);
 }
@@ -69,22 +69,6 @@ async fn apply_role_returns_error_for_unknown_role() {
         .expect_err("unknown role should fail");
 
     assert_eq!(err, "unknown agent_type 'missing-role'");
-}
-
-#[tokio::test]
-async fn apply_empty_explorer_role_preserves_current_model_and_reasoning_effort() {
-    let (_home, mut config) = test_config_with_cli_overrides(Vec::new()).await;
-    let before_layers = session_flags_layer_count(&config);
-    config.model = Some("gpt-5.4-mini".to_string());
-    config.model_reasoning_effort = Some(ReasoningEffort::High);
-
-    apply_role_to_config(&mut config, Some("explorer"))
-        .await
-        .expect("explorer role should apply");
-
-    assert_eq!(config.model.as_deref(), Some("gpt-5.4-mini"));
-    assert_eq!(config.model_reasoning_effort, Some(ReasoningEffort::High));
-    assert_eq!(session_flags_layer_count(&config), before_layers);
 }
 
 #[tokio::test]
@@ -431,7 +415,7 @@ enabled = false
 }
 
 #[test]
-fn spawn_tool_spec_build_deduplicates_user_defined_built_in_roles() {
+fn spawn_tool_spec_lists_only_configured_roles() {
     let user_defined_roles = BTreeMap::from([
         (
             "explorer".to_string(),
@@ -448,12 +432,11 @@ fn spawn_tool_spec_build_deduplicates_user_defined_built_in_roles() {
 
     assert!(spec.contains("researcher: no description"));
     assert!(spec.contains("explorer: {\nuser override\n}"));
-    assert!(spec.contains("default: {\nDefault agent.\n}"));
-    assert!(!spec.contains("Explorers are fast and authoritative."));
+    assert!(!spec.contains("default: {\nDefault agent.\n}"));
 }
 
 #[test]
-fn spawn_tool_spec_lists_user_defined_roles_before_built_ins() {
+fn spawn_tool_spec_lists_configured_roles() {
     let user_defined_roles = BTreeMap::from([(
         "aaa".to_string(),
         AgentRoleConfig {
@@ -464,12 +447,7 @@ fn spawn_tool_spec_lists_user_defined_roles_before_built_ins() {
     )]);
 
     let spec = spawn_tool_spec::build(&user_defined_roles);
-    let user_index = spec.find("aaa: {\nfirst\n}").expect("find user role");
-    let built_in_index = spec
-        .find("default: {\nDefault agent.\n}")
-        .expect("find built-in role");
-
-    assert!(user_index < built_in_index);
+    assert_eq!(spec, "Available roles:\naaa: {\nfirst\n}");
 }
 
 #[test]
@@ -545,12 +523,4 @@ fn spawn_tool_spec_marks_role_locked_service_tier() {
     assert!(spec.contains(
         "Stay fast.\n- This role's service tier is set to `priority`. If it is supported by the resolved model, it takes precedence over a valid spawn request service tier."
     ));
-}
-
-#[test]
-fn built_in_config_file_contents_resolves_explorer_only() {
-    assert_eq!(
-        built_in::config_file_contents(Path::new("missing.toml")),
-        None
-    );
 }

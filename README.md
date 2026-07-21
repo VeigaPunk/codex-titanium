@@ -7,7 +7,6 @@ Titanium changes:
 
 - Press `Delete` in the Skills menu to remove the selected skill.
 - Press `Delete` in the Plugins menu to uninstall the selected plugin.
-- Remove the `doctor` command and its CLI registration.
 - Remove the `mcp` and `mcp-server` command implementations.
 - Hard-disable host-owned apps and every configured MCP server at runtime.
 - Hard-disable agent memories, external memory import, and Chronicle.

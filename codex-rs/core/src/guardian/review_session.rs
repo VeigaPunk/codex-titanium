@@ -1058,8 +1058,6 @@ pub(crate) fn build_guardian_review_session_config(
         Feature::CodexHooks,
         Feature::Apps,
         Feature::Plugins,
-        Feature::WebSearchRequest,
-        Feature::WebSearchCached,
     ] {
         guardian_config.features.disable(feature).map_err(|err| {
             anyhow::anyhow!(
