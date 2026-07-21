@@ -1342,10 +1342,7 @@ async fn maybe_request_mcp_tool_approval(
         None => {}
     }
 
-    let tool_call_mcp_elicitation_enabled = turn_context
-        .config
-        .features
-        .enabled(Feature::ToolCallMcpElicitation);
+    let tool_call_mcp_elicitation_enabled = false;
 
     if matches!(
         config.approval_policy.value(),

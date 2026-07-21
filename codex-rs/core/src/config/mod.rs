@@ -1637,9 +1637,7 @@ impl Config {
             auth_keyring_backend_kind: self.auth_keyring_backend_kind(),
             mcp_oauth_callback_port: self.mcp_oauth_callback_port,
             mcp_oauth_callback_url: self.mcp_oauth_callback_url.clone(),
-            skill_mcp_dependency_install_enabled: self
-                .features
-                .enabled(Feature::SkillMcpDependencyInstall),
+            skill_mcp_dependency_install_enabled: false,
             approval_policy: self.permissions.approval_policy.clone(),
             permission_profile: self.permissions.permission_profile().clone(),
             config_layer_stack: self.config_layer_stack.clone(),
@@ -1678,8 +1676,7 @@ impl Config {
     }
 
     pub(crate) fn prefix_mcp_tool_names(&self) -> bool {
-        !self.features.enabled(Feature::NonPrefixedMcpToolNames)
-            || self.non_prefixed_mcp_tool_servers.is_some()
+        true
     }
 
     pub async fn rebuild_preserving_session_layers(
