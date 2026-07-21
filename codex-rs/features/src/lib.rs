@@ -376,6 +376,12 @@ impl Features {
     }
 
     pub fn enabled(&self, f: Feature) -> bool {
+        if matches!(
+            f,
+            Feature::MemoryTool | Feature::ExternalAgentMemoryImport | Feature::Chronicle
+        ) {
+            return false;
+        }
         self.enabled.contains(&f)
     }
 

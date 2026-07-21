@@ -9,6 +9,7 @@ Titanium changes:
 - Press `Delete` in the Plugins menu to uninstall the selected plugin.
 - Remove the `doctor` command and its CLI registration.
 - Remove the `mcp` and `mcp-server` command implementations.
+- Hard-disable agent memories, external memory import, and Chronicle.
 - Default `codex exec` to skipping the Git-repository check.
 - Ship unrestricted Godspeed, 64-thread multi-agent v2, and DS4CC marketplace
   defaults in `titanium/config.toml`.
@@ -23,6 +24,35 @@ install -Dm600 titanium/config.toml "${CODEX_HOME:-$HOME/.codex}/config.toml"
 
 The distribution toolchain includes Bun and FNM multishell support for Pi,
 XBreed, and marketplace tooling. Codex itself remains a native Rust executable.
+
+### Browser
+
+Titanium disables Codex's built-in browser-use, web-search, in-app-browser, and
+computer-use lanes. Its authenticated web-UI adapters all use
+[agent-browser](https://github.com/vercel-labs/agent-browser), pinned in
+`titanium/package.json`:
+
+- **The Puppeteer** drives ChatGPT-only web UI features.
+- **The Musketeer** drives Grok-only web UI features.
+- **The Almanacker** drives NotebookLM-only web UI features.
+- **KimiHikoner** is reserved for the forthcoming Kimi K3 web UI adapter.
+
+The first three are public DS4CC marketplace plugins. They intentionally share
+one dedicated Chrome DevTools Protocol browser and profile on loopback port
+9222.
+
+```shell
+cd titanium
+bun install
+bun run browser:install
+agent-browser --cdp 9222 open https://chatgpt.com
+```
+
+`agent-browser install` downloads Chrome for Testing, which is a better
+throwaway automation browser than reusing a personal Chrome profile. Launch it
+with `--remote-debugging-address=127.0.0.1`, `--remote-debugging-port=9222`, and
+an isolated persistent `--user-data-dir`. Sign that profile into ChatGPT, Grok,
+and NotebookLM only. Never expose its CDP port beyond loopback.
 
 The upstream npm package and Homebrew cask do **not** contain these changes.
 Until Titanium release artifacts and its tap are published, build the Rust CLI

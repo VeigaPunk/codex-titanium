@@ -2,6 +2,7 @@
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 include_collaboration_mode_instructions = false
+web_search = "disabled"
 
 base_instructions = """
 # Godspeed Mode — Behavioral Directive
@@ -21,6 +22,15 @@ shell_snapshot = true
 skill_search = true
 workspace_dependencies = true
 concurrent_reasoning_summaries = true
+browser_use = false
+browser_use_external = false
+browser_use_full_cdp_access = false
+computer_use = false
+in_app_browser = false
+standalone_web_search = false
+memories = false
+external_agent_memory_import = false
+chronicle = false
 skill_mcp_dependency_install = false
 enable_mcp_apps = false
 
@@ -52,9 +62,6 @@ enabled = true
 [plugins."godspeed-codex-command@ds4cc"]
 enabled = true
 
-[plugins."the-puppeteer@ds4cc"]
-enabled = true
-
 [plugins."godspeed-core@ds4cc"]
 enabled = true
 
@@ -68,6 +75,15 @@ enabled = true
 enabled = true
 
 [plugins."agent-wall@ds4cc"]
+enabled = true
+
+[plugins."the-puppeteer@ds4cc"]
+enabled = true
+
+[plugins."the-musketeer@ds4cc"]
+enabled = true
+
+[plugins."the-almanacker@ds4cc"]
 enabled = true
 
 [plugins."ds4cc@ds4cc"]
