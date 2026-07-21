@@ -1,7 +1,7 @@
 # Codex Titanium
 
 An opinionated source fork of OpenAI Codex CLI, currently based on
-`0.145.0-alpha.25` and published as `0.145.0-alpha.25+titanium.1`.
+`0.146.0-alpha.10.1` and published as `0.146.0-alpha.10.1+titanium.1`.
 
 Titanium changes:
 
@@ -55,8 +55,15 @@ an isolated persistent `--user-data-dir`. Sign that profile into ChatGPT, Grok,
 and NotebookLM only. Never expose its CDP port beyond loopback.
 
 The upstream npm package and Homebrew cask do **not** contain these changes.
-Until Titanium release artifacts and its tap are published, build the Rust CLI
-from `codex-rs` with Cargo.
+Install the released Titanium Rust CLI on Linux x86_64 with:
+
+```sh
+brew install VeigaPunk/tap/codex-titanium
+```
+
+The formula installs both `codex-titanium` and a `codex` symlink from the
+SHA-256-verified Titanium release artifact. Other platforms can build the Rust
+CLI from `codex-rs` with Cargo until native release artifacts are published.
 
 This project preserves the upstream Apache-2.0 license and NOTICE. It is an
 independent fork and is not an official OpenAI distribution.
