@@ -31,6 +31,7 @@ use codex_features::Feature;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
+use crossterm::event::KeyModifiers;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 
@@ -688,6 +689,37 @@ impl ChatWidget {
     }
 
     pub(crate) fn handle_plugins_popup_key_event(&mut self, key_event: KeyEvent) -> bool {
+        if key_event.code == KeyCode::Delete
+            && key_event.modifiers == KeyModifiers::NONE
+            && key_event.kind == KeyEventKind::Press
+            && let Some(active_tab_id) = self
+                .bottom_pane
+                .active_tab_id_for_active_view(PLUGINS_SELECTION_VIEW_ID)
+            && let Some(selected_index) = self
+                .bottom_pane
+                .selected_index_for_active_view(PLUGINS_SELECTION_VIEW_ID)
+            && let PluginsCacheState::Ready(plugins_response) = self.plugins_cache_for_current_cwd()
+            && let Some((plugin_id, plugin_display_name)) = self
+                .uninstallable_plugin_for_selected_row(
+                    &plugins_response,
+                    active_tab_id,
+                    selected_index,
+                )
+        {
+            let cwd = self.config.cwd.to_path_buf();
+            self.open_plugin_uninstall_loading_popup(&plugin_display_name);
+            self.app_event_tx
+                .send(AppEvent::OpenPluginUninstallLoading {
+                    plugin_display_name: plugin_display_name.clone(),
+                });
+            self.app_event_tx.send(AppEvent::FetchPluginUninstall {
+                cwd,
+                plugin_id,
+                plugin_display_name,
+            });
+            return true;
+        }
+
         let remove_marketplace = key_hint::ctrl(KeyCode::Char('r')).is_press(key_event);
         let upgrade_marketplace = key_hint::ctrl(KeyCode::Char('u')).is_press(key_event);
         if !remove_marketplace && !upgrade_marketplace {

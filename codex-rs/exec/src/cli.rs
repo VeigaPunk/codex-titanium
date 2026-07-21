@@ -24,7 +24,7 @@ pub struct Cli {
     pub shared: ExecSharedCliOptions,
 
     /// Allow running Codex outside a Git repository.
-    #[arg(long = "skip-git-repo-check", global = true, default_value_t = false)]
+    #[arg(long = "skip-git-repo-check", global = true, default_value_t = true)]
     pub skip_git_repo_check: bool,
 
     /// Run without persisting session files to disk.

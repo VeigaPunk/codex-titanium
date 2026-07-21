@@ -1294,6 +1294,38 @@ impl ChatWidget {
         }
         items
     }
+
+    pub(super) fn uninstallable_plugin_for_selected_row(
+        &self,
+        response: &PluginListResponse,
+        active_tab_id: &str,
+        selected_index: usize,
+    ) -> Option<(String, String)> {
+        let marketplaces = &response.marketplaces;
+        let mut entries = if active_tab_id == ALL_PLUGINS_TAB_ID {
+            plugin_entries_for_marketplaces(marketplaces)
+        } else if active_tab_id == INSTALLED_PLUGINS_TAB_ID {
+            plugin_entries_for_marketplaces(marketplaces)
+                .into_iter()
+                .filter(|(_, plugin, _)| plugin.installed)
+                .collect()
+        } else if active_tab_id == OPENAI_CURATED_TAB_ID {
+            plugin_entries_for_marketplaces(marketplaces.iter().filter(|marketplace| {
+                MarketplaceProduct::from_marketplace(marketplace).is_by_openai()
+            }))
+        } else {
+            let marketplace = marketplaces
+                .iter()
+                .find(|marketplace| marketplace_tab_id(marketplace) == active_tab_id)?;
+            plugin_entries_for_marketplaces([marketplace])
+        };
+        sort_plugin_entries(&mut entries);
+
+        let (_, plugin, display_name) = entries.get(selected_index)?;
+        (plugin.installed && plugin.install_policy != PluginInstallPolicy::InstalledByDefault)
+            .then(|| plugin_uninstall_id(plugin).map(|plugin_id| (plugin_id, display_name.clone())))
+            .flatten()
+    }
 }
 
 fn plugins_popup_hint_line(

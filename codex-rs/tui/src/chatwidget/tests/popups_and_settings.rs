@@ -977,6 +977,50 @@ async fn plugin_detail_remote_uninstall_uses_remote_plugin_id() {
 }
 
 #[tokio::test]
+async fn plugins_popup_delete_uninstalls_selected_installed_plugin() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    chat.set_feature_enabled(Feature::Plugins, /*enabled*/ true);
+    let cwd = chat.config.cwd.clone();
+    chat.on_plugins_loaded(
+        cwd.to_path_buf(),
+        Ok(plugins_test_response(vec![plugins_test_repo_marketplace(
+            vec![plugins_test_summary(
+                "linear@local",
+                "linear",
+                Some("Linear"),
+                Some("Issue tracking."),
+                /*installed*/ true,
+                /*enabled*/ true,
+                PluginInstallPolicy::Available,
+            )],
+        )])),
+    );
+    chat.add_plugins_output();
+
+    while rx.try_recv().is_ok() {}
+    chat.handle_key_event(KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE));
+
+    match rx.try_recv() {
+        Ok(AppEvent::OpenPluginUninstallLoading {
+            plugin_display_name,
+        }) => assert_eq!(plugin_display_name, "Linear"),
+        other => panic!("expected OpenPluginUninstallLoading event, got {other:?}"),
+    }
+    match rx.try_recv() {
+        Ok(AppEvent::FetchPluginUninstall {
+            cwd: uninstall_cwd,
+            plugin_id,
+            plugin_display_name,
+        }) => {
+            assert_eq!(uninstall_cwd, cwd.to_path_buf());
+            assert_eq!(plugin_id, "linear@local");
+            assert_eq!(plugin_display_name, "Linear");
+        }
+        other => panic!("expected FetchPluginUninstall event, got {other:?}"),
+    }
+}
+
+#[tokio::test]
 async fn plugin_detail_remote_without_remote_id_disables_uninstall_action() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
     chat.set_feature_enabled(Feature::Plugins, /*enabled*/ true);

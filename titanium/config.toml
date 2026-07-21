@@ -1,0 +1,74 @@
+# Codex Titanium defaults. This profile is intentionally unrestricted.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+include_collaboration_mode_instructions = false
+
+base_instructions = """
+# Godspeed Mode — Behavioral Directive
+
+1. Name the axes.
+2. Iterate cheap, in parallel.
+3. Keep moves that improve any axis and harm none.
+4. Don't aim — let the frontier walk itself.
+"""
+
+[features]
+fast_mode = true
+hooks = true
+multi_agent = true
+plugins = true
+shell_snapshot = true
+skill_search = true
+workspace_dependencies = true
+concurrent_reasoning_summaries = true
+skill_mcp_dependency_install = false
+enable_mcp_apps = false
+
+[features.multi_agent_v2]
+enabled = true
+max_concurrent_threads_per_session = 64
+expose_spawn_agent_model_overrides = true
+subagent_usage_hint_text = "Inherit only the Godspeed base directive."
+multi_agent_mode_hint_text = "Operate as the judge: dispatch, compare, Pareto-filter, and synthesize."
+
+[agents]
+max_depth = 1
+job_max_runtime_seconds = 1800
+interrupt_message = true
+
+[marketplaces.ds4cc]
+source_type = "git"
+source = "https://github.com/VeigaPunk/ds4cc-marketplace.git"
+
+[plugins."xbrd-gdsp-fknpft@ds4cc"]
+enabled = true
+
+[plugins."aaronplug@ds4cc"]
+enabled = true
+
+[plugins."infinizoom@ds4cc"]
+enabled = true
+
+[plugins."godspeed-codex-command@ds4cc"]
+enabled = true
+
+[plugins."the-puppeteer@ds4cc"]
+enabled = true
+
+[plugins."godspeed-core@ds4cc"]
+enabled = true
+
+[plugins."myagents@ds4cc"]
+enabled = true
+
+[plugins."mycommands@ds4cc"]
+enabled = true
+
+[plugins."myskills@ds4cc"]
+enabled = true
+
+[plugins."agent-wall@ds4cc"]
+enabled = true
+
+[plugins."ds4cc@ds4cc"]
+enabled = true

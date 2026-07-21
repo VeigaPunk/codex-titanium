@@ -212,6 +212,19 @@ impl SkillsToggleView {
         });
     }
 
+    fn delete_selected(&mut self) {
+        let Some(visible_idx) = self.state.selected_idx else {
+            return;
+        };
+        let Some(actual_idx) = self.filtered_indices.get(visible_idx).copied() else {
+            return;
+        };
+        let item = self.items.remove(actual_idx);
+        self.app_event_tx
+            .send(AppEvent::DeleteSkill { path: item.path });
+        self.apply_filter();
+    }
+
     fn close(&mut self) {
         if self.complete {
             return;
@@ -268,6 +281,11 @@ impl BottomPaneView for SkillsToggleView {
                 modifiers: KeyModifiers::NONE,
                 ..
             } => self.toggle_selected(),
+            KeyEvent {
+                code: KeyCode::Delete,
+                modifiers: KeyModifiers::NONE,
+                ..
+            } => self.delete_selected(),
             _ if self.keymap.accept.is_pressed(key_event) => self.toggle_selected(),
             _ if self.keymap.cancel.is_pressed(key_event) => {
                 self.on_ctrl_c();
@@ -397,7 +415,7 @@ fn skills_toggle_hint_line(keymap: &ListKeymap) -> Line<'static> {
             space.into(),
             " or ".into(),
             accept.into(),
-            " to toggle; ".into(),
+            " to toggle; Del to nuke; ".into(),
             cancel.into(),
             " to close".into(),
         ]),
@@ -406,16 +424,20 @@ fn skills_toggle_hint_line(keymap: &ListKeymap) -> Line<'static> {
             space.into(),
             " or ".into(),
             accept.into(),
-            " to toggle".into(),
+            " to toggle; Del to nuke".into(),
         ]),
         (None, Some(cancel)) => Line::from(vec![
             "Press ".into(),
             space.into(),
-            " to toggle; ".into(),
+            " to toggle; Del to nuke; ".into(),
             cancel.into(),
             " to close".into(),
         ]),
-        (None, None) => Line::from(vec!["Press ".into(), space.into(), " to toggle".into()]),
+        (None, None) => Line::from(vec![
+            "Press ".into(),
+            space.into(),
+            " to toggle; Del to nuke".into(),
+        ]),
     }
 }
 

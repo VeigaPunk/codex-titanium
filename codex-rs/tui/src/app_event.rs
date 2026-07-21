@@ -958,6 +958,11 @@ pub(crate) enum AppEvent {
         enabled: bool,
     },
 
+    /// Permanently delete the selected skill directory.
+    DeleteSkill {
+        path: AbsolutePathBuf,
+    },
+
     /// Enable or disable an app by connector ID.
     SetAppEnabled {
         id: String,

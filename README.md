@@ -1,3 +1,40 @@
+# Codex Titanium
+
+An opinionated source fork of OpenAI Codex CLI, currently based on
+`0.145.0-alpha.25` and published as `0.145.0-alpha.25+titanium.1`.
+
+Titanium changes:
+
+- Press `Delete` in the Skills menu to remove the selected skill.
+- Press `Delete` in the Plugins menu to uninstall the selected plugin.
+- Remove the `doctor` command and its CLI registration.
+- Remove the `mcp` and `mcp-server` command implementations.
+- Default `codex exec` to skipping the Git-repository check.
+- Ship unrestricted Godspeed, 64-thread multi-agent v2, and DS4CC marketplace
+  defaults in `titanium/config.toml`.
+
+The Titanium preset intentionally uses `approval_policy = "never"` and
+`sandbox_mode = "danger-full-access"`. It will not request permission before
+commands or writes unless the user changes those settings.
+
+```shell
+install -Dm600 titanium/config.toml "${CODEX_HOME:-$HOME/.codex}/config.toml"
+```
+
+The distribution toolchain includes Bun and FNM multishell support for Pi,
+XBreed, and marketplace tooling. Codex itself remains a native Rust executable.
+
+The upstream npm package and Homebrew cask do **not** contain these changes.
+Until Titanium release artifacts and its tap are published, build the Rust CLI
+from `codex-rs` with Cargo.
+
+This project preserves the upstream Apache-2.0 license and NOTICE. It is an
+independent fork and is not an official OpenAI distribution.
+
+---
+
+## Upstream documentation
+
 <p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
 <p align="center">
   <img src="https://github.com/openai/codex/blob/main/.github/codex-cli-splash.png" alt="Codex CLI splash" width="80%" />

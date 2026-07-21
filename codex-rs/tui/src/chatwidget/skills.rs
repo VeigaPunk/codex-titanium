@@ -20,6 +20,10 @@ use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_plugins::mention_syntax::TOOL_MENTION_SIGIL;
 
 impl ChatWidget {
+    pub(crate) fn request_skills_refresh(&mut self) {
+        self.refresh_skills_for_current_cwd(/*force_reload*/ true);
+    }
+
     pub(crate) fn open_skills_list(&mut self) {
         if self.config.features.enabled(Feature::MentionsV2) {
             self.insert_str("@");

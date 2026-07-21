@@ -2041,6 +2041,26 @@ impl App {
                     }
                 }
             }
+            AppEvent::DeleteSkill { path } => {
+                if let Some(skill_dir) = path.as_path().parent() {
+                    match tokio::fs::remove_dir_all(skill_dir).await {
+                        Ok(()) => {
+                            self.chat_widget
+                                .add_info_message(format!("Nuked skill: {}", path.display()), None);
+                            self.chat_widget.request_skills_refresh();
+                        }
+                        Err(err) => self.chat_widget.add_error_message(format!(
+                            "Failed to nuke skill {}: {err}",
+                            path.display()
+                        )),
+                    }
+                } else {
+                    self.chat_widget.add_error_message(format!(
+                        "Cannot delete skill without a parent directory: {}",
+                        path.display()
+                    ));
+                }
+            }
             AppEvent::SetAppEnabled { id, enabled } => {
                 let edits = if enabled {
                     vec![
