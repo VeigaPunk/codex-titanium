@@ -239,12 +239,12 @@ impl ToolPluginProvenance {
     }
 }
 
-pub fn host_owned_codex_apps_enabled(config: &McpConfig, auth: Option<&CodexAuth>) -> bool {
-    config.apps_enabled && auth.is_some_and(CodexAuth::uses_codex_backend)
+pub fn host_owned_codex_apps_enabled(_config: &McpConfig, _auth: Option<&CodexAuth>) -> bool {
+    false
 }
 
-pub fn configured_mcp_servers(config: &McpConfig) -> HashMap<String, McpServerConfig> {
-    config.mcp_server_catalog.configured_servers()
+pub fn configured_mcp_servers(_config: &McpConfig) -> HashMap<String, McpServerConfig> {
+    HashMap::new()
 }
 
 pub fn effective_mcp_servers(
