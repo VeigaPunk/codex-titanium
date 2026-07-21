@@ -29,8 +29,6 @@ pub use feedback_diagnostics::FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME;
 pub use feedback_diagnostics::FeedbackDiagnostic;
 pub use feedback_diagnostics::FeedbackDiagnostics;
 
-/// Filename used for the redacted `codex doctor --json` feedback attachment.
-pub const DOCTOR_REPORT_ATTACHMENT_FILENAME: &str = "codex-doctor-report.json";
 /// Filename used for the raw Codex Apps MCP tools cache feedback attachment.
 pub const CODEX_APPS_TOOLS_CACHE_ATTACHMENT_FILENAME: &str = "codex-apps-tools-cache.json";
 /// Filename used for the raw connector directory cache feedback attachment.
@@ -361,7 +359,7 @@ pub struct FeedbackAttachmentPath {
 /// In-memory attachment to include in a feedback upload.
 ///
 /// Use this for generated diagnostics that should not be materialized on disk,
-/// such as the redacted doctor report. File-backed artifacts should use
+/// such as generated diagnostics. File-backed artifacts should use
 /// `FeedbackAttachmentPath` so upload-time read failures can be logged and
 /// skipped independently.
 pub struct FeedbackAttachment {
@@ -768,11 +766,7 @@ mod tests {
 
         let attachments_with_diagnostics = snapshot_with_diagnostics.feedback_attachments(
             /*include_logs*/ true,
-            &[FeedbackAttachment {
-                filename: DOCTOR_REPORT_ATTACHMENT_FILENAME.to_string(),
-                content_type: Some("application/json".to_string()),
-                buffer: b"{\"overallStatus\":\"ok\"}".to_vec(),
-            }],
+            &[],
             std::slice::from_ref(&extra_attachment_path),
             Some(vec![1]),
         );
@@ -784,7 +778,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 "codex-logs.log",
-                DOCTOR_REPORT_ATTACHMENT_FILENAME,
                 FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME,
                 extra_filename.as_str()
             ]
@@ -792,19 +785,15 @@ mod tests {
         assert_eq!(attachments_with_diagnostics[0].buffer, vec![1]);
         assert_eq!(
             attachments_with_diagnostics[1].buffer,
-            b"{\"overallStatus\":\"ok\"}".to_vec()
-        );
-        assert_eq!(
-            attachments_with_diagnostics[2].buffer,
             b"Connectivity diagnostics\n\n- Proxy environment variables are set and may affect connectivity.\n  - HTTPS_PROXY = https://example.com:443".to_vec()
         );
-        assert_eq!(attachments_with_diagnostics[3].buffer, b"rollout".to_vec());
+        assert_eq!(attachments_with_diagnostics[2].buffer, b"rollout".to_vec());
         assert_eq!(
-            attachments_with_diagnostics[3].content_type.as_deref(),
+            attachments_with_diagnostics[2].content_type.as_deref(),
             Some("text/plain")
         );
         assert_eq!(
-            OsStr::new(attachments_with_diagnostics[3].filename.as_str()),
+            OsStr::new(attachments_with_diagnostics[2].filename.as_str()),
             OsStr::new(extra_filename.as_str())
         );
         let attachments_without_diagnostics = CodexFeedback::new()

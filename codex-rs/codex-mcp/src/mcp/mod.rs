@@ -239,10 +239,6 @@ impl ToolPluginProvenance {
     }
 }
 
-pub fn host_owned_codex_apps_enabled(_config: &McpConfig, _auth: Option<&CodexAuth>) -> bool {
-    false
-}
-
 pub fn configured_mcp_servers(_config: &McpConfig) -> HashMap<String, McpServerConfig> {
     HashMap::new()
 }
@@ -260,8 +256,8 @@ pub fn effective_mcp_servers(
 /// `configured_servers`; this function does not synthesize missing servers.
 pub fn effective_mcp_servers_from_configured(
     configured_servers: HashMap<String, McpServerConfig>,
-    config: &McpConfig,
-    auth: Option<&CodexAuth>,
+    _config: &McpConfig,
+    _auth: Option<&CodexAuth>,
 ) -> HashMap<String, EffectiveMcpServer> {
     let chatgpt_origin = url::Url::parse(CHATGPT_CODEX_BASE_URL)
         .ok()
@@ -289,9 +285,7 @@ pub fn effective_mcp_servers_from_configured(
             (name, EffectiveMcpServer::configured(server))
         })
         .collect::<HashMap<_, _>>();
-    if !host_owned_codex_apps_enabled(config, auth) {
-        servers.remove(CODEX_APPS_MCP_SERVER_NAME);
-    }
+    servers.remove(CODEX_APPS_MCP_SERVER_NAME);
     servers
 }
 

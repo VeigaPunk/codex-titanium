@@ -526,7 +526,6 @@ impl TurnRequestProcessor {
             .collect();
         let client_user_message_id = params.client_user_message_id;
         let additional_context = map_additional_context(params.additional_context);
-        let turn_has_input = !mapped_items.is_empty();
         let cwd = resolve_request_cwd(params.cwd)?;
         let environments = self
             .build_environment_override(
@@ -555,14 +554,6 @@ impl TurnRequestProcessor {
                 },
             )
             .await?;
-        let parent_permission_profile_override =
-            thread_settings.permission_profile.clone().or_else(|| {
-                thread_settings
-                    .sandbox_policy
-                    .as_ref()
-                    .map(PermissionProfile::from_legacy_sandbox_policy)
-            });
-
         // Start the turn by submitting the user input. Return its submission id as turn_id.
         let turn_op = Op::UserInput {
             items: mapped_items,
@@ -583,21 +574,6 @@ impl TurnRequestProcessor {
                 self.track_error_response(&request_id, &error, /*error_type*/ None);
                 error
             })?;
-
-        if turn_has_input {
-            let config_snapshot = thread.config_snapshot().await;
-            let parent_permission_profile =
-                parent_permission_profile_override.unwrap_or(config_snapshot.permission_profile);
-            codex_memories_write::start_memories_startup_task(
-                Arc::clone(&self.thread_manager),
-                Arc::clone(&self.auth_manager),
-                thread_id,
-                Arc::clone(&thread),
-                thread.config().await,
-                parent_permission_profile,
-                &config_snapshot.session_source,
-            );
-        }
 
         self.outgoing
             .record_request_turn_id(&request_id, &turn_id)

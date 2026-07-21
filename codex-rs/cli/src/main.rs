@@ -1524,14 +1524,6 @@ async fn cli_main(
                     .parse_overrides()
                     .map_err(anyhow::Error::msg)?;
 
-                // Honor `--search` via the canonical web_search mode.
-                if interactive.web_search {
-                    cli_kv_overrides.push((
-                        "web_search".to_string(),
-                        toml::Value::String("live".to_string()),
-                    ));
-                }
-
                 let config = ConfigBuilder::default()
                     .cli_overrides(cli_kv_overrides)
                     .build()
@@ -1846,13 +1838,6 @@ async fn run_debug_prompt_input_command(
     let mut cli_kv_overrides = root_config_overrides
         .parse_overrides()
         .map_err(anyhow::Error::msg)?;
-    if interactive.web_search {
-        cli_kv_overrides.push((
-            "web_search".to_string(),
-            toml::Value::String("live".to_string()),
-        ));
-    }
-
     let approval_policy = if shared.dangerously_bypass_approvals_and_sandbox {
         Some(AskForApproval::Never)
     } else {
@@ -2351,7 +2336,6 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
         shared,
         strict_config,
         approval_policy,
-        web_search,
         prompt,
         config_overrides,
         ..
@@ -2361,9 +2345,6 @@ fn merge_interactive_cli_flags(interactive: &mut TuiCli, subcommand_cli: TuiCli)
         .apply_subcommand_overrides(shared.into_inner());
     if let Some(approval) = approval_policy {
         interactive.approval_policy = Some(approval);
-    }
-    if web_search {
-        interactive.web_search = true;
     }
     if strict_config {
         interactive.strict_config = true;
@@ -3883,14 +3864,14 @@ mod tests {
     #[test]
     fn feature_toggles_known_features_generate_overrides() {
         let toggles = FeatureToggles {
-            enable: vec!["web_search_request".to_string()],
+            enable: vec!["unified_exec".to_string()],
             disable: vec!["unified_exec".to_string()],
         };
         let overrides = toggles.to_overrides().expect("valid features");
         assert_eq!(
             overrides,
             vec![
-                "features.web_search_request=true".to_string(),
+                "features.unified_exec=true".to_string(),
                 "features.unified_exec=false".to_string(),
             ]
         );

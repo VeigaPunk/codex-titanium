@@ -67,13 +67,6 @@ impl ExternalAgentSource {
         }
     }
 
-    pub(super) fn supports_memory(self) -> bool {
-        match self {
-            Self::Cla => true,
-            Self::Cur => false,
-        }
-    }
-
     pub(super) fn settings_file_name(self, scope: &MigrationScope) -> &'static str {
         match (self, scope) {
             (Self::Cla, _) => ClaSource::SETTINGS_FILE,

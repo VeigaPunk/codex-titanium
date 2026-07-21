@@ -80,7 +80,6 @@ use codex_mcp::McpConfig;
 use codex_mcp::McpPluginAttribution;
 use codex_mcp::McpServerRegistration;
 use codex_mcp::ResolvedMcpCatalog;
-use codex_memories_read::memory_root;
 use codex_model_provider_info::LEGACY_OLLAMA_CHAT_PROVIDER_ID;
 use codex_model_provider_info::ModelProviderInfo;
 use codex_model_provider_info::OLLAMA_CHAT_PROVIDER_REMOVED_ERROR;
@@ -2450,7 +2449,6 @@ pub struct ConfigOverrides {
     pub personality: Option<Personality>,
     pub compact_prompt: Option<String>,
     pub show_raw_agent_reasoning: Option<bool>,
-    pub tools_web_search_request: Option<bool>,
     pub ephemeral: Option<bool>,
     pub bypass_hook_trust: Option<bool>,
     /// Additional directories that should be treated as writable roots for this session.
@@ -2481,15 +2479,7 @@ pub fn resolve_oss_provider(
 
 /// Resolve the web search mode from explicit config and feature flags.
 fn resolve_web_search_mode(config_toml: &ConfigToml, features: &Features) -> Option<WebSearchMode> {
-    if let Some(mode) = config_toml.web_search {
-        return Some(mode);
-    }
-    if features.enabled(Feature::WebSearchCached) {
-        return Some(WebSearchMode::Cached);
-    }
-    if features.enabled(Feature::WebSearchRequest) {
-        return Some(WebSearchMode::Live);
-    }
+    let _ = (config_toml, features);
     None
 }
 
@@ -3107,7 +3097,6 @@ impl Config {
             personality,
             compact_prompt,
             show_raw_agent_reasoning,
-            tools_web_search_request: override_tools_web_search_request,
             ephemeral,
             bypass_hook_trust,
             additional_writable_roots,
@@ -3150,9 +3139,7 @@ impl Config {
         }
 
         let tool_suggest = resolve_tool_suggest_config(&cfg, &config_layer_stack);
-        let feature_overrides = FeatureOverrides {
-            web_search_request: override_tools_web_search_request,
-        };
+        let feature_overrides = FeatureOverrides;
 
         let configured_features = Features::from_sources(
             FeatureConfigSource {
@@ -3256,7 +3243,6 @@ impl Config {
             None => WindowsSandboxLevel::Disabled,
         };
         let memories_config: MemoriesConfig = cfg.memories.clone().unwrap_or_default().into();
-        let memories_root = memory_root(&codex_home);
 
         let profiles_are_active = effective_permission_selection.profiles_are_active(
             default_permissions_override.as_deref(),
@@ -3503,7 +3489,7 @@ impl Config {
             approvals_reviewer = constrained_approvals_reviewer.value();
         }
         let web_search_mode =
-            resolve_web_search_mode(&cfg, &features).unwrap_or(WebSearchMode::Cached);
+            resolve_web_search_mode(&cfg, &features).unwrap_or(WebSearchMode::Disabled);
         let web_search_config = resolve_web_search_config(&cfg);
         let experimental_request_user_input_enabled =
             resolve_experimental_request_user_input_enabled(&cfg);
@@ -3828,14 +3814,11 @@ impl Config {
             network_requirements,
             &network_permission_profile,
         )?;
-        let mut helper_readable_roots = get_readable_roots_required_for_codex_runtime(
+        let helper_readable_roots = get_readable_roots_required_for_codex_runtime(
             &codex_home,
             zsh_path.as_ref(),
             main_execve_wrapper_exe.as_ref(),
         );
-        if features.enabled(Feature::MemoryTool) && memories_config.use_memories {
-            helper_readable_roots.push(memories_root);
-        }
         let effective_permission_profile = constrained_permission_profile.value.get().clone();
         let (mut effective_file_system_sandbox_policy, effective_network_sandbox_policy) =
             effective_permission_profile.to_runtime_permissions();

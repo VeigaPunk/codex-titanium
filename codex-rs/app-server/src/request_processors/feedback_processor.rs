@@ -222,16 +222,7 @@ impl FeedbackRequestProcessor {
             }
         }
 
-        let mut extra_attachments = Vec::new();
-        if include_logs
-            && let Some(doctor_report) =
-                super::feedback_doctor_report::doctor_feedback_report(&self.config).await
-        {
-            extra_attachments.push(doctor_report.attachment);
-            for (key, value) in doctor_report.tags {
-                upload_tags.entry(key).or_insert(value);
-            }
-        }
+        let extra_attachments = Vec::new();
 
         let session_source = self.thread_manager.session_source();
 

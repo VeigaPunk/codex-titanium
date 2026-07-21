@@ -174,12 +174,6 @@ fn remote_control_config_is_ignored() {
 }
 
 #[test]
-fn telepathy_is_legacy_alias_for_chronicle() {
-    assert_eq!(feature_for_key("chronicle"), Some(Feature::Chronicle));
-    assert_eq!(feature_for_key("telepathy"), Some(Feature::Chronicle));
-}
-
-#[test]
 fn collab_is_legacy_alias_for_multi_agent() {
     assert_eq!(feature_for_key("multi_agent"), Some(Feature::Collab));
     assert_eq!(feature_for_key("collab"), Some(Feature::Collab));
@@ -226,16 +220,13 @@ fn from_sources_applies_base_profile_and_overrides() {
             features: Some(&profile_features),
             ..Default::default()
         },
-        FeatureOverrides {
-            web_search_request: Some(false),
-        },
+        FeatureOverrides,
     );
 
     assert_eq!(features.enabled(Feature::Plugins), true);
     assert_eq!(features.enabled(Feature::CodeModeOnly), true);
     assert_eq!(features.enabled(Feature::CodeMode), true);
     assert_eq!(features.enabled(Feature::ApplyPatchFreeform), false);
-    assert_eq!(features.enabled(Feature::WebSearchRequest), false);
 }
 
 #[test]

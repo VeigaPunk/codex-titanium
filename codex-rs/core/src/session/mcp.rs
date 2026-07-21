@@ -442,9 +442,7 @@ impl Session {
             cancellation_token
         };
         let current_runtime = self.services.latest_mcp_runtime();
-        let codex_apps_auth_manager =
-            codex_mcp::host_owned_codex_apps_enabled(&mcp_config, auth.as_ref())
-                .then(|| Arc::clone(&self.services.auth_manager));
+        let codex_apps_auth_manager = None;
         let refreshed_manager = McpConnectionManager::new(
             &mcp_servers,
             mcp_config.mcp_oauth_credentials_store_mode,

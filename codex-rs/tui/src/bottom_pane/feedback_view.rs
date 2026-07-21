@@ -1,6 +1,5 @@
 use codex_feedback::CODEX_APP_DIRECTORY_CACHE_ATTACHMENT_FILENAME;
 use codex_feedback::CODEX_APPS_TOOLS_CACHE_ATTACHMENT_FILENAME;
-use codex_feedback::DOCTOR_REPORT_ATTACHMENT_FILENAME;
 use codex_feedback::FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME;
 use codex_feedback::FeedbackDiagnostics;
 use codex_feedback::WINDOWS_SANDBOX_LOG_ATTACHMENT_FILENAME;
@@ -509,11 +508,6 @@ pub(crate) fn feedback_upload_consent_params(
         Line::from(vec!["  • ".into(), "codex-logs.log".into()]).into(),
         Line::from(vec![
             "  • ".into(),
-            DOCTOR_REPORT_ATTACHMENT_FILENAME.into(),
-        ])
-        .into(),
-        Line::from(vec![
-            "  • ".into(),
             format!("{CODEX_APPS_TOOLS_CACHE_ATTACHMENT_FILENAME} (if available)").into(),
         ])
         .into(),
@@ -711,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    fn feedback_upload_consent_lists_doctor_report() {
+    fn feedback_upload_consent_lists_supported_attachments() {
         let (tx_raw, _rx) = tokio::sync::mpsc::unbounded_channel::<AppEvent>();
         let tx = AppEventSender::new(tx_raw);
         let params = feedback_upload_consent_params(
@@ -725,7 +719,10 @@ mod tests {
 
         let rendered = render_renderable(params.header.as_ref(), /*width*/ 60);
 
-        insta::assert_snapshot!("feedback_upload_consent_lists_doctor_report", rendered);
+        insta::assert_snapshot!(
+            "feedback_upload_consent_lists_supported_attachments",
+            rendered
+        );
     }
 
     #[test]

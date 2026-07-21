@@ -9,7 +9,6 @@ use codex_mcp::MCP_TOOL_CODEX_APPS_META_KEY;
 use codex_mcp::McpConnectionManager;
 use codex_mcp::ToolInfo;
 use codex_mcp::effective_mcp_servers;
-use codex_mcp::host_owned_codex_apps_enabled;
 use codex_mcp::tool_is_model_visible;
 use codex_mcp::tool_plugin_provenance;
 use codex_protocol::models::PermissionProfile;
@@ -75,9 +74,7 @@ impl AppsRequestProcessor {
                         config.cwd.to_path_buf(),
                     );
                     let cancellation_token = CancellationToken::new();
-                    let codex_apps_auth_manager =
-                        host_owned_codex_apps_enabled(&mcp_config, auth.as_ref())
-                            .then(|| Arc::clone(&self.auth_manager));
+                    let codex_apps_auth_manager = None;
                     let connection_manager = McpConnectionManager::new(
                         &mcp_servers,
                         config.mcp_oauth_credentials_store_mode,

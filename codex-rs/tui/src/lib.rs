@@ -924,13 +924,6 @@ pub async fn run_main(
         )
     };
 
-    // Map the legacy --search flag to the canonical web_search mode.
-    if cli.web_search {
-        cli.config_overrides
-            .raw_overrides
-            .push("web_search=\"live\"".to_string());
-    }
-
     // When using `--oss`, let the bootstrapper pick the model (defaulting to
     // gpt-oss:20b) and ensure it is present locally. Also, force the built‑in
     let raw_overrides = cli.config_overrides.raw_overrides.clone();

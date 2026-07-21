@@ -121,7 +121,7 @@ impl ExternalAgentConfigRequestProcessor {
             .with_migration_source(params.migration_source.as_deref());
         let options = ExternalAgentConfigDetectOptions {
             include_home: params.include_home,
-            include_memory: self.external_agent_memory_import_enabled().await,
+            include_memory: false,
             cwds: params.cwds,
         };
         let items = migration_service
@@ -141,9 +141,10 @@ impl ExternalAgentConfigRequestProcessor {
             .migration_items
             .iter()
             .any(|item| item.item_type == ExternalAgentConfigMigrationItemType::Memory)
-            && !self.external_agent_memory_import_enabled().await
         {
-            return Err(invalid_request("external agent memory import is disabled"));
+            return Err(invalid_request(
+                "external agent memory import has been removed",
+            ));
         }
         if params.migration_items.iter().any(|item| {
             item.item_type == ExternalAgentConfigMigrationItemType::Memory
@@ -309,24 +310,6 @@ impl ExternalAgentConfigRequestProcessor {
         });
 
         Ok(())
-    }
-
-    async fn external_agent_memory_import_enabled(&self) -> bool {
-        let config = match self
-            .config_manager
-            .load_latest_config(/*fallback_cwd*/ None)
-            .await
-        {
-            Ok(config) => config,
-            Err(err) => {
-                tracing::warn!(
-                    error = %err,
-                    "failed to reload config for external agent memory import detection"
-                );
-                return false;
-            }
-        };
-        config.features.enabled(Feature::ExternalAgentMemoryImport)
     }
 
     pub(crate) async fn read_import_histories(

@@ -378,7 +378,7 @@ impl ChatWidget {
                 self.open_auto_review_denials_popup();
             }
             SlashCommand::Memories => {
-                self.open_memories_popup();
+                self.add_error_message("Memories are not available in this build.".to_string());
             }
             SlashCommand::Quit | SlashCommand::Exit => {
                 self.request_quit_without_confirmation();

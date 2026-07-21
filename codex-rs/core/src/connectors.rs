@@ -235,9 +235,7 @@ pub async fn list_accessible_connectors_from_mcp_tools_with_mcp_manager(
         McpRuntimeContext::new(Arc::clone(&environment_manager), config.cwd.to_path_buf());
 
     let cancel_token = CancellationToken::new();
-    let codex_apps_auth_manager =
-        codex_mcp::host_owned_codex_apps_enabled(&mcp_config, auth.as_ref())
-            .then(|| Arc::clone(&auth_manager));
+    let codex_apps_auth_manager = None;
     let mcp_connection_manager = McpConnectionManager::new(
         &mcp_servers,
         config.mcp_oauth_credentials_store_mode,
