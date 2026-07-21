@@ -9,6 +9,7 @@ Titanium changes:
 - Press `Delete` in the Plugins menu to uninstall the selected plugin.
 - Remove the `doctor` command and its CLI registration.
 - Remove the `mcp` and `mcp-server` command implementations.
+- Hard-disable host-owned apps and every configured MCP server at runtime.
 - Hard-disable agent memories, external memory import, and Chronicle.
 - Default `codex exec` to skipping the Git-repository check.
 - Ship unrestricted Godspeed, 64-thread multi-agent v2, and DS4CC marketplace
