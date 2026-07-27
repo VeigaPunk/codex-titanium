@@ -94,3 +94,7 @@ CHANGELOG.ignore.md
 # Python bytecode files
 __pycache__/
 *.pyc
+
+# Titanium release artifacts (distributed via GitHub Releases, not git)
+*.tar.gz
+*.tar.gz.sha256
