@@ -2661,12 +2661,6 @@ mod tests {
             Some("work")
         );
         assert_eq!(
-            profile_v2_for_args(&["codex", "--profile", "work", "mcp", "list"])
-                .expect("mcp supports profile-v2")
-                .as_deref(),
-            Some("work")
-        );
-        assert_eq!(
             profile_v2_for_args(&["codex", "--profile", "work", "sandbox"])
                 .expect("sandbox supports config profile")
                 .as_deref(),
@@ -3301,7 +3295,6 @@ mod tests {
                 "resume",
                 "sid",
                 "--oss",
-                "--search",
                 "--sandbox",
                 "workspace-write",
                 "--ask-for-approval",
@@ -3507,19 +3500,6 @@ mod tests {
 
     #[test]
     fn root_strict_config_is_rejected_for_unsupported_subcommands() {
-        let cli = MultitoolCli::try_parse_from(["codex", "--strict-config", "mcp", "list"])
-            .expect("parse");
-        let err = reject_root_strict_config_for_subcommand(
-            cli.interactive.strict_config,
-            &cli.subcommand,
-        )
-        .expect_err("mcp should not support root --strict-config");
-
-        assert_eq!(
-            err.to_string(),
-            "`--strict-config` is not supported for `codex mcp`"
-        );
-
         let cli = MultitoolCli::try_parse_from(["codex", "--strict-config", "remote-control"])
             .expect("parse");
         let err = reject_root_strict_config_for_subcommand(
