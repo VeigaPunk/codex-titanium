@@ -276,6 +276,14 @@ async fn spawn_agent_uses_explorer_role_and_preserves_approval_policy() {
         .set(AskForApproval::OnRequest)
         .expect("approval policy should be set");
     turn.provider = create_model_provider(provider_info, turn.auth_manager.clone());
+    config.agent_roles.insert(
+        "explorer".to_string(),
+        AgentRoleConfig {
+            description: Some("Explorer role for tests".to_string()),
+            config_file: None,
+            nickname_candidates: None,
+        },
+    );
     turn.config = Arc::new(config);
 
     let invocation = invocation(
@@ -2297,6 +2305,14 @@ async fn spawn_agent_reapplies_runtime_sandbox_after_role_config() {
         .expect("approval policy should be set");
     let mut config = (*turn.config).clone();
     config.approvals_reviewer = ApprovalsReviewer::AutoReview;
+    config.agent_roles.insert(
+        "explorer".to_string(),
+        AgentRoleConfig {
+            description: Some("Explorer role for tests".to_string()),
+            config_file: None,
+            nickname_candidates: None,
+        },
+    );
     set_turn_config(&mut turn, config);
     turn.permission_profile = expected_permission_profile.clone();
     assert_ne!(

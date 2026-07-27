@@ -1765,14 +1765,7 @@ async fn code_mode_only_can_expose_namespaced_multi_agent_v2_as_normal_tools() {
 
     assert_eq!(
         plan.visible_names,
-        vec![
-            "exec",
-            "wait",
-            "request_user_input",
-            "agents",
-            // Hosted Responses tool.
-            "web_search",
-        ]
+        vec!["exec", "wait", "request_user_input", "agents"]
     );
     assert!(
         !plan

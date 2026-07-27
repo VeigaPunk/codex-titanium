@@ -459,12 +459,12 @@ async fn load_config_resolves_non_prefixed_mcp_tool_servers() -> std::io::Result
         (
             "[features]\nnon_prefixed_mcp_tool_names = true\n",
             None,
-            false,
+            true,
         ),
         (
             "[features.non_prefixed_mcp_tool_names]\nenabled = true\n",
             None,
-            false,
+            true,
         ),
         (
             "[features.non_prefixed_mcp_tool_names]\nenabled = true\nserver_names = [\"history\", \"notes\"]\n",
@@ -6282,7 +6282,7 @@ async fn to_mcp_config_flows_mcp_tool_prefix_from_feature() -> std::io::Result<(
 
     let _ = config.features.enable(Feature::NonPrefixedMcpToolNames);
     let mcp_config = config.to_mcp_config(&plugins_manager).await;
-    assert!(!mcp_config.prefix_mcp_tool_names);
+    assert!(mcp_config.prefix_mcp_tool_names);
     assert!(mcp_config.non_prefixed_mcp_tool_servers.is_empty());
 
     config.non_prefixed_mcp_tool_servers = Some(vec!["history".to_string(), "notes".to_string()]);
@@ -10161,13 +10161,13 @@ async fn requirements_web_search_mode_overrides_danger_full_access_default() -> 
         .build()
         .await?;
 
-    assert_eq!(config.web_search_mode.value(), WebSearchMode::Cached);
+    assert_eq!(config.web_search_mode.value(), WebSearchMode::Disabled);
     assert_eq!(
         resolve_web_search_mode_for_turn(
             &config.web_search_mode,
             &config.permissions.effective_permission_profile(),
         ),
-        WebSearchMode::Cached,
+        WebSearchMode::Disabled,
     );
     Ok(())
 }

@@ -434,38 +434,7 @@
             "apps": {
               "type": "boolean"
             },
-            "apps_mcp_path_override": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "enabled": {
-                      "type": "boolean"
-                    },
-                    "path": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              ]
-            },
             "auth_elicitation": {
-              "type": "boolean"
-            },
-            "browser_use": {
-              "type": "boolean"
-            },
-            "browser_use_external": {
-              "type": "boolean"
-            },
-            "browser_use_full_cdp_access": {
-              "type": "boolean"
-            },
-            "chronicle": {
               "type": "boolean"
             },
             "code_mode": {
@@ -490,9 +459,6 @@
               "type": "boolean"
             },
             "collaboration_modes": {
-              "type": "boolean"
-            },
-            "computer_use": {
               "type": "boolean"
             },
             "concurrent_reasoning_summaries": {
@@ -522,9 +488,6 @@
             "enable_fanout": {
               "type": "boolean"
             },
-            "enable_mcp_apps": {
-              "type": "boolean"
-            },
             "enable_request_compression": {
               "type": "boolean"
             },
@@ -538,9 +501,6 @@
               "type": "boolean"
             },
             "experimental_windows_sandbox": {
-              "type": "boolean"
-            },
-            "external_agent_memory_import": {
               "type": "boolean"
             },
             "external_migration": {
@@ -570,9 +530,6 @@
             "imagegenext": {
               "type": "boolean"
             },
-            "in_app_browser": {
-              "type": "boolean"
-            },
             "item_ids": {
               "type": "boolean"
             },
@@ -583,15 +540,6 @@
               "type": "boolean"
             },
             "local_thread_store_compression": {
-              "type": "boolean"
-            },
-            "mcp_2026_07_28": {
-              "type": "boolean"
-            },
-            "memories": {
-              "type": "boolean"
-            },
-            "memory_tool": {
               "type": "boolean"
             },
             "mentions_v2": {
@@ -687,22 +635,13 @@
             "skill_env_var_dependency_prompt": {
               "type": "boolean"
             },
-            "skill_mcp_dependency_install": {
-              "type": "boolean"
-            },
             "skill_search": {
               "type": "boolean"
             },
             "sqlite": {
               "type": "boolean"
             },
-            "standalone_web_search": {
-              "type": "boolean"
-            },
             "steer": {
-              "type": "boolean"
-            },
-            "telepathy": {
               "type": "boolean"
             },
             "terminal_resize_reflow": {
@@ -713,9 +652,6 @@
             },
             "token_budget": {
               "$ref": "#/definitions/FeatureToml_for_TokenBudgetConfigToml"
-            },
-            "tool_call_mcp_elicitation": {
-              "type": "boolean"
             },
             "tool_search": {
               "type": "boolean"
@@ -748,15 +684,6 @@
               "type": "boolean"
             },
             "use_linux_sandbox_bwrap": {
-              "type": "boolean"
-            },
-            "web_search": {
-              "type": "boolean"
-            },
-            "web_search_cached": {
-              "type": "boolean"
-            },
-            "web_search_request": {
               "type": "boolean"
             },
             "workspace_dependencies": {
@@ -4984,38 +4911,7 @@
         "apps": {
           "type": "boolean"
         },
-        "apps_mcp_path_override": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "enabled": {
-                  "type": "boolean"
-                },
-                "path": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            }
-          ]
-        },
         "auth_elicitation": {
-          "type": "boolean"
-        },
-        "browser_use": {
-          "type": "boolean"
-        },
-        "browser_use_external": {
-          "type": "boolean"
-        },
-        "browser_use_full_cdp_access": {
-          "type": "boolean"
-        },
-        "chronicle": {
           "type": "boolean"
         },
         "code_mode": {
@@ -5040,9 +4936,6 @@
           "type": "boolean"
         },
         "collaboration_modes": {
-          "type": "boolean"
-        },
-        "computer_use": {
           "type": "boolean"
         },
         "concurrent_reasoning_summaries": {
@@ -5072,9 +4965,6 @@
         "enable_fanout": {
           "type": "boolean"
         },
-        "enable_mcp_apps": {
-          "type": "boolean"
-        },
         "enable_request_compression": {
           "type": "boolean"
         },
@@ -5088,9 +4978,6 @@
           "type": "boolean"
         },
         "experimental_windows_sandbox": {
-          "type": "boolean"
-        },
-        "external_agent_memory_import": {
           "type": "boolean"
         },
         "external_migration": {
@@ -5120,9 +5007,6 @@
         "imagegenext": {
           "type": "boolean"
         },
-        "in_app_browser": {
-          "type": "boolean"
-        },
         "item_ids": {
           "type": "boolean"
         },
@@ -5133,15 +5017,6 @@
           "type": "boolean"
         },
         "local_thread_store_compression": {
-          "type": "boolean"
-        },
-        "mcp_2026_07_28": {
-          "type": "boolean"
-        },
-        "memories": {
-          "type": "boolean"
-        },
-        "memory_tool": {
           "type": "boolean"
         },
         "mentions_v2": {
@@ -5237,22 +5112,13 @@
         "skill_env_var_dependency_prompt": {
           "type": "boolean"
         },
-        "skill_mcp_dependency_install": {
-          "type": "boolean"
-        },
         "skill_search": {
           "type": "boolean"
         },
         "sqlite": {
           "type": "boolean"
         },
-        "standalone_web_search": {
-          "type": "boolean"
-        },
         "steer": {
-          "type": "boolean"
-        },
-        "telepathy": {
           "type": "boolean"
         },
         "terminal_resize_reflow": {
@@ -5263,9 +5129,6 @@
         },
         "token_budget": {
           "$ref": "#/definitions/FeatureToml_for_TokenBudgetConfigToml"
-        },
-        "tool_call_mcp_elicitation": {
-          "type": "boolean"
         },
         "tool_search": {
           "type": "boolean"
@@ -5298,15 +5161,6 @@
           "type": "boolean"
         },
         "use_linux_sandbox_bwrap": {
-          "type": "boolean"
-        },
-        "web_search": {
-          "type": "boolean"
-        },
-        "web_search_cached": {
-          "type": "boolean"
-        },
-        "web_search_request": {
           "type": "boolean"
         },
         "workspace_dependencies": {
