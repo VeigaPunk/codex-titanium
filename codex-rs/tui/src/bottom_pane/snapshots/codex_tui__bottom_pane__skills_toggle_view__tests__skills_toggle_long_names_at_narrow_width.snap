@@ -1,5 +1,6 @@
 ---
 source: tui/src/bottom_pane/skills_toggle_view.rs
+assertion_line: 596
 expression: "render_lines(&view, 48)"
 ---
                                                 
@@ -11,4 +12,4 @@ expression: "render_lines(&view, 48)"
 › [x] superpowers-systematic-d… Find root cau…  
   [ ] superpowers-verification… Verify comple…  
                                                 
-  Press space or enter to toggle; esc to close
+  Press space or enter to toggle; Del to nuke; e

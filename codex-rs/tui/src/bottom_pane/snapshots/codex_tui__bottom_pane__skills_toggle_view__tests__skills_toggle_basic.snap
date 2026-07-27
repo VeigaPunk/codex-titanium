@@ -1,5 +1,6 @@
 ---
 source: tui/src/bottom_pane/skills_toggle_view.rs
+assertion_line: 518
 expression: "render_lines(&view, 72)"
 ---
                                                                         
@@ -11,4 +12,4 @@ expression: "render_lines(&view, 72)"
 › [x] Repo Scout        Summarize the repo layout                       
   [ ] Changelog Writer  Draft release notes                             
                                                                         
-  Press space or enter to toggle; esc to close
+  Press space or enter to toggle; Del to nuke; esc to close

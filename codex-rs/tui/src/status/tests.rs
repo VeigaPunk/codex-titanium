@@ -187,9 +187,16 @@ fn sanitize_directory(lines: Vec<String>) -> Vec<String> {
         .iter()
         .find(|line| line.starts_with('╭'))
         .map(|line| UnicodeWidthStr::width(line.as_str()));
+    let version_tag = format!("(v{})", crate::version::CODEX_CLI_VERSION);
+    let scrubbed_version = format!("(v0.0.0){}", " ".repeat(version_tag.len() - 8));
     lines
         .into_iter()
         .map(|line| {
+            let line = if version_tag != "(v0.0.0)" {
+                line.replace(&version_tag, &scrubbed_version)
+            } else {
+                line
+            };
             if let (Some(frame_width), Some(dir_pos), Some(pipe_idx)) =
                 (frame_width, line.find("Directory: "), line.rfind('│'))
             {

@@ -1,6 +1,7 @@
 //! Key routing and composer-adjacent UI interaction for `ChatWidget`.
 
 use super::*;
+use crate::chatwidget::plugins::PLUGINS_SELECTION_VIEW_ID;
 
 impl ChatWidget {
     pub(crate) fn handle_key_event(&mut self, key_event: KeyEvent) {
@@ -16,6 +17,12 @@ impl ChatWidget {
             )
             && !key_hint::ctrl(KeyCode::Char('r')).is_press(key_event)
             && !key_hint::ctrl(KeyCode::Char('u')).is_press(key_event)
+            && !(key_event.code == KeyCode::Delete
+                && key_event.modifiers == KeyModifiers::NONE
+                && self
+                    .bottom_pane
+                    .active_tab_id_for_active_view(PLUGINS_SELECTION_VIEW_ID)
+                    .is_some())
         {
             let should_pause_active_goal = self
                 .bottom_pane

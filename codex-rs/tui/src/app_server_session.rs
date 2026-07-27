@@ -2377,7 +2377,7 @@ mod tests {
                 ),
                 (
                     "web_search".to_string(),
-                    serde_json::Value::String("cached".to_string()),
+                    serde_json::Value::String("disabled".to_string()),
                 ),
             ]))
         );
