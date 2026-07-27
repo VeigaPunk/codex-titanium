@@ -85,7 +85,10 @@ fn emit_turn_network_proxy_metric_records_active_turn() {
     let (attrs, value) = metric_point(&snapshot, TURN_NETWORK_PROXY_METRIC);
 
     assert_eq!(value, 1);
-    assert_eq!(attrs, BTreeMap::from([("active".to_string(), "true".to_string())]));
+    assert_eq!(
+        attrs,
+        BTreeMap::from([("active".to_string(), "true".to_string())])
+    );
 }
 
 #[test]
@@ -100,7 +103,10 @@ fn emit_turn_network_proxy_metric_records_inactive_turn() {
     let (attrs, value) = metric_point(&snapshot, TURN_NETWORK_PROXY_METRIC);
 
     assert_eq!(value, 1);
-    assert_eq!(attrs, BTreeMap::from([("active".to_string(), "false".to_string())]));
+    assert_eq!(
+        attrs,
+        BTreeMap::from([("active".to_string(), "false".to_string())])
+    );
 }
 
 #[test]

@@ -2618,7 +2618,10 @@ mod tests {
     #[test]
     fn can_reuse_implicit_local_daemon_requires_default_launch_config() -> color_eyre::Result<()> {
         let mut loader_overrides = LoaderOverrides::default();
-        let cli_kv_overrides = vec![("unused_override".to_string(), toml::Value::String("live".into()))];
+        let cli_kv_overrides = vec![(
+            "unused_override".to_string(),
+            toml::Value::String("live".into()),
+        )];
 
         assert!(can_reuse_implicit_local_daemon(
             &[],
