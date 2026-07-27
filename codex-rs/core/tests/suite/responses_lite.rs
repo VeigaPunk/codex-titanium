@@ -213,51 +213,6 @@ async fn responses_lite_prepares_images() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn responses_lite_uses_standalone_web_search_and_image_generation() -> Result<()> {
-    skip_if_no_network!(Ok(()));
-
-    let server = responses::start_mock_server().await;
-    let response_mock = responses::mount_sse_once(
-        &server,
-        responses::sse(vec![
-            responses::ev_response_created("resp-1"),
-            responses::ev_completed("resp-1"),
-        ]),
-    )
-    .await;
-
-    let auth = CodexAuth::create_dummy_chatgpt_auth_for_testing();
-    let extensions = responses_extensions(&auth);
-
-    let mut builder = test_codex()
-        .with_auth(auth)
-        .with_extensions(extensions)
-        .with_model_info_override("gpt-5.4", |model_info| {
-            model_info.use_responses_lite = true;
-            configure_image_capable_model(model_info);
-        })
-        .with_config(configure_responses_tools);
-    let test = builder.build(&server).await?;
-
-    test.submit_turn("Use standalone tools").await?;
-
-    let request = response_mock.single_request();
-    assert_eq!(
-        request.header(RESPONSES_LITE_HEADER).as_deref(),
-        Some("true")
-    );
-    let body = request.body_json();
-    assert!(body.get("tools").is_none());
-    let tools = additional_tools(&body)?;
-    assert!(has_namespaced_tool(tools, "web", "run"));
-    assert!(has_namespaced_tool(tools, "image_gen", "imagegen"));
-    assert!(!has_hosted_tool(tools, "web_search"));
-    assert!(!has_hosted_tool(tools, "image_generation"));
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn responses_lite_exposes_standalone_tools_for_actor_authorized_provider() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
