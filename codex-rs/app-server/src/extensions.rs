@@ -11,7 +11,6 @@ use codex_core::NewThread;
 use codex_core::StartThreadOptions;
 use codex_core::ThreadManager;
 use codex_core::config::Config;
-use codex_exec_server::EnvironmentManager;
 use codex_extension_api::AgentSpawnFuture;
 use codex_extension_api::AgentSpawner;
 use codex_extension_api::ExtensionEventSink;
@@ -40,7 +39,6 @@ pub(crate) struct ThreadExtensionDependencies {
     pub(crate) analytics_events_client: AnalyticsEventsClient,
     pub(crate) thread_manager: Weak<ThreadManager>,
     pub(crate) goal_service: Arc<GoalService>,
-    pub(crate) environment_manager: Arc<EnvironmentManager>,
     pub(crate) executor_skill_provider: Arc<dyn codex_skills_extension::SkillProvider>,
     pub(crate) git_attribution_base_url: String,
     pub(crate) http_client_factory: HttpClientFactory,
@@ -62,7 +60,6 @@ where
         analytics_events_client,
         thread_manager,
         goal_service,
-        environment_manager,
         executor_skill_provider,
         git_attribution_base_url,
         http_client_factory,

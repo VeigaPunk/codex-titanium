@@ -275,7 +275,6 @@ impl MessageProcessor {
                         analytics_events_client: analytics_events_client.clone(),
                         thread_manager: thread_manager.clone(),
                         goal_service: Arc::clone(&goal_service),
-                        environment_manager: Arc::clone(&environment_manager_for_extensions),
                         executor_skill_provider: Arc::clone(&executor_skill_provider),
                         git_attribution_base_url: config.chatgpt_base_url.clone(),
                         http_client_factory: config.http_client_factory(),
@@ -433,7 +432,6 @@ impl MessageProcessor {
             config_warnings,
         );
         let turn_processor = TurnRequestProcessor::new(
-            auth_manager.clone(),
             Arc::clone(&thread_manager),
             outgoing.clone(),
             analytics_events_client.clone(),

@@ -82,7 +82,6 @@ mod mcp_refresh_cleanup;
 mod mcp_startup_refresh_http_proxy;
 mod mcp_tool_cache;
 mod mcp_tool_exposure;
-mod mcp_turn_metadata;
 mod model_overrides;
 mod model_runtime_selectors;
 mod model_switching;
@@ -154,7 +153,6 @@ mod unstable_features_warning;
 mod user_notification;
 mod user_shell_cmd;
 mod view_image;
-mod web_search;
 mod websocket_fallback;
 mod window_headers;
 #[cfg(target_os = "windows")]

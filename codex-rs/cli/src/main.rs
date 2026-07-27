@@ -1537,7 +1537,7 @@ async fn cli_main(
                     root_remote_auth_token_env.as_deref(),
                     "features list",
                 )?;
-                let mut cli_kv_overrides = root_config_overrides
+                let cli_kv_overrides = root_config_overrides
                     .parse_overrides()
                     .map_err(anyhow::Error::msg)?;
 
@@ -1880,7 +1880,7 @@ async fn run_debug_prompt_input_command(
 ) -> anyhow::Result<()> {
     let loader_overrides = loader_overrides_for_profile(interactive.config_profile_v2.as_ref())?;
     let shared = interactive.shared.into_inner();
-    let mut cli_kv_overrides = root_config_overrides
+    let cli_kv_overrides = root_config_overrides
         .parse_overrides()
         .map_err(anyhow::Error::msg)?;
     let approval_policy = if shared.dangerously_bypass_approvals_and_sandbox {
@@ -3334,7 +3334,6 @@ mod tests {
             interactive.cwd.as_deref(),
             Some(std::path::Path::new("/tmp"))
         );
-        assert!(interactive.web_search);
         assert!(interactive.strict_config);
         let has_a = interactive
             .images

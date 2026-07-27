@@ -65,7 +65,7 @@ impl FeedbackRequestProcessor {
             extra_log_files,
             tags,
         } = params;
-        let mut upload_tags = tags.unwrap_or_default();
+        let upload_tags = tags.unwrap_or_default();
 
         let conversation_id = match thread_id.as_deref() {
             Some(thread_id) => match ThreadId::from_string(thread_id) {

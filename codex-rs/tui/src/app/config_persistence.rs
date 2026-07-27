@@ -638,104 +638,6 @@ impl App {
         }
     }
 
-    pub(super) async fn update_memory_settings(
-        &mut self,
-        app_server: &mut AppServerSession,
-        use_memories: bool,
-        generate_memories: bool,
-    ) -> bool {
-        let edits =
-            crate::config_update::build_memory_settings_edits(use_memories, generate_memories);
-
-        let write_response = match crate::config_update::write_config_batch(
-            app_server.request_handle(),
-            edits,
-        )
-        .await
-        {
-            Ok(response) => response,
-            Err(err) => {
-                tracing::error!(error = %err, "failed to persist memory settings");
-                self.chat_widget
-                    .add_error_message(format!("Failed to save memory settings: {err}"));
-                return false;
-            }
-        };
-        if write_response.status == WriteStatus::OkOverridden {
-            let message = overridden_write_message(&write_response);
-            tracing::warn!(
-                message,
-                "memory settings config write was overridden by effective config"
-            );
-            self.chat_widget.add_error_message(format!(
-                "Memory setting changes were saved but not applied: {message}"
-            ));
-            let Some(effective_config) = self
-                .read_effective_config_after_overridden_write(app_server, "Memory setting changes")
-                .await
-            else {
-                return false;
-            };
-            return self.sync_memory_state_from_effective_config(&effective_config);
-        }
-
-        self.config.memories.use_memories = use_memories;
-        self.config.memories.generate_memories = generate_memories;
-        true
-    }
-
-    pub(super) async fn update_memory_settings_with_app_server(
-        &mut self,
-        app_server: &mut AppServerSession,
-        use_memories: bool,
-        generate_memories: bool,
-    ) {
-        let previous_generate_memories = self.config.memories.generate_memories;
-        if !self
-            .update_memory_settings(app_server, use_memories, generate_memories)
-            .await
-        {
-            return;
-        }
-
-        let generate_memories = self.config.memories.generate_memories;
-        if previous_generate_memories == generate_memories {
-            return;
-        }
-
-        let Some(thread_id) = self.current_displayed_thread_id() else {
-            return;
-        };
-
-        let mode = if generate_memories {
-            ThreadMemoryMode::Enabled
-        } else {
-            ThreadMemoryMode::Disabled
-        };
-
-        if let Err(err) = app_server.thread_memory_mode_set(thread_id, mode).await {
-            tracing::error!(error = %err, %thread_id, "failed to update thread memory mode");
-            self.chat_widget.add_error_message(format!(
-                "Saved memory settings, but failed to update the current thread: {err}"
-            ));
-        }
-    }
-
-    pub(super) async fn reset_memories_with_app_server(
-        &mut self,
-        app_server: &mut AppServerSession,
-    ) {
-        if let Err(err) = app_server.memory_reset().await {
-            tracing::error!(error = %err, "failed to reset memories");
-            self.chat_widget
-                .add_error_message(format!("Failed to reset memories: {err}"));
-            return;
-        }
-
-        self.chat_widget
-            .add_info_message("Reset local memories.".to_string(), /*hint*/ None);
-    }
-
     pub(super) fn reasoning_label(reasoning_effort: Option<&ReasoningEffortConfig>) -> String {
         match reasoning_effort {
             None | Some(ReasoningEffortConfig::None) => "default".to_string(),
@@ -1010,27 +912,6 @@ impl App {
         }
     }
 
-    fn sync_memory_state_from_effective_config(
-        &mut self,
-        effective_config: &ConfigReadResponse,
-    ) -> bool {
-        let Some(memories) = memories_from_effective_config(effective_config) else {
-            tracing::warn!(
-                "config/read omitted memories after an overridden memory settings write"
-            );
-            return false;
-        };
-        let use_memories = memories
-            .use_memories
-            .unwrap_or(self.config.memories.use_memories);
-        let generate_memories = memories
-            .generate_memories
-            .unwrap_or(self.config.memories.generate_memories);
-        self.config.memories.use_memories = use_memories;
-        self.config.memories.generate_memories = generate_memories;
-        true
-    }
-
     #[cfg(target_os = "windows")]
     pub(super) async fn sync_windows_sandbox_after_overridden_write(
         &mut self,
@@ -1124,14 +1005,6 @@ fn sandbox_mode_from_effective_config(
     effective_config: &ConfigReadResponse,
 ) -> Option<AppServerSandboxMode> {
     effective_config.config.sandbox_mode
-}
-
-fn memories_from_effective_config(effective_config: &ConfigReadResponse) -> Option<MemoriesToml> {
-    effective_config
-        .config
-        .additional
-        .get("memories")
-        .and_then(|memories| serde_json::from_value(memories.clone()).ok())
 }
 
 fn features_toml_from_json(value: &serde_json::Value) -> Option<FeaturesToml> {

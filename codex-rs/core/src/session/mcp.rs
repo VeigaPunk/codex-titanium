@@ -124,13 +124,6 @@ impl Session {
         (mcp_config, runtime_context)
     }
 
-    pub(crate) async fn runtime_mcp_servers(
-        &self,
-        config: &Config,
-    ) -> HashMap<String, McpServerConfig> {
-        codex_mcp::configured_mcp_servers(&self.runtime_mcp_config(config).await)
-    }
-
     /// Publishes changed MCP state, waiting for any refresh already in progress.
     pub(crate) async fn refresh_mcp_if_dirty(self: &Arc<Self>) {
         let Ok(_refresh) = self.mcp_refresh.acquire().await else {
@@ -502,59 +495,6 @@ impl Session {
             .store(supported, std::sync::atomic::Ordering::Relaxed);
         self.request_mcp_runtime_refresh();
         Ok(())
-    }
-
-    pub(crate) async fn refresh_mcp_servers_now(
-        &self,
-        turn_context: &TurnContext,
-        refresh_config: &Config,
-        elicitation_reviewer: Option<ElicitationReviewerHandle>,
-    ) {
-        let Ok(_refresh) = self.mcp_refresh.acquire().await else {
-            error!("MCP runtime refresh semaphore closed");
-            return;
-        };
-        let auth = self.services.auth_manager.auth().await;
-        self.services
-            .plugins_manager
-            .set_auth_mode(auth.as_ref().map(CodexAuth::api_auth_mode));
-        {
-            let mut state = self.state.lock().await;
-            let mut config = (*state.session_configuration.original_config_do_not_use).clone();
-            config.mcp_servers = refresh_config.mcp_servers.clone();
-            state.session_configuration.original_config_do_not_use = Arc::new(config);
-        }
-        let ready_selected_capability_roots = self
-            .services
-            .mcp_runtime
-            .current_ready_selected_capability_roots();
-        let executor_capability_discovery = self
-            .executor_capability_discovery_for_step(
-                refresh_config,
-                &ready_selected_capability_roots,
-            )
-            .await;
-        let mcp_projection = self
-            .services
-            .mcp_manager
-            .runtime_config_for_step(
-                refresh_config,
-                &self.services.mcp_thread_init,
-                &self.services.thread_extension_data,
-                &turn_context.originator,
-                &ready_selected_capability_roots,
-                executor_capability_discovery.as_deref(),
-            )
-            .await;
-        let mut desired = self.latest_mcp_desired_state(auth).await;
-        desired.config = Arc::new(refresh_config.clone());
-        self.publish_mcp_runtime(
-            &desired,
-            mcp_projection,
-            &ready_selected_capability_roots,
-            elicitation_reviewer,
-        )
-        .await;
     }
 
     pub(crate) fn ready_selected_capability_roots(

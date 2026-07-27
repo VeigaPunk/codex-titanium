@@ -39,7 +39,6 @@ use codex_external_agent_migration::PluginImportOutcome;
 use codex_external_agent_migration::record_import_error;
 use codex_external_agent_migration::sessions::ExternalAgentSessionMigration as CoreSessionMigration;
 use codex_external_agent_migration::sessions::read_imported_connector_candidates;
-use codex_features::Feature;
 use codex_rollout::StateDbHandle;
 use codex_state::ExternalAgentConfigImportFailureRecord;
 use codex_state::ExternalAgentConfigImportSuccessRecord;
@@ -61,7 +60,6 @@ pub(crate) struct ExternalAgentConfigRequestProcessor {
     migration_service: ExternalAgentConfigService,
     session_importer: ExternalAgentSessionImporter,
     thread_manager: Arc<ThreadManager>,
-    config_manager: ConfigManager,
     config_processor: ConfigRequestProcessor,
     state_db: Option<StateDbHandle>,
     analytics_events_client: AnalyticsEventsClient,
@@ -110,7 +108,6 @@ impl ExternalAgentConfigRequestProcessor {
             migration_service,
             session_importer,
             thread_manager,
-            config_manager,
             config_processor,
             state_db,
             analytics_events_client,

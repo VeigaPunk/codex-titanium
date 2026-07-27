@@ -5,7 +5,6 @@ use codex_agent_extension::AgentRunner;
 use codex_protocol::error::CodexErrorDetails;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::FunctionCallOutputContentItem;
-use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::AdditionalContextEntry as CoreAdditionalContextEntry;
 use codex_protocol::protocol::AdditionalContextKind as CoreAdditionalContextKind;
 use codex_protocol::protocol::MultiAgentVersion;
@@ -86,7 +85,6 @@ fn validate_response_item_image_urls(items: &[ResponseItem]) -> Result<(), JSONR
 #[derive(Clone)]
 pub(crate) struct TurnRequestProcessor {
     agent_runner: AgentRunner,
-    auth_manager: Arc<AuthManager>,
     thread_manager: Arc<ThreadManager>,
     outgoing: Arc<OutgoingMessageSender>,
     analytics_events_client: AnalyticsEventsClient,
@@ -141,7 +139,6 @@ struct ThreadSettingsBuildParams {
 impl TurnRequestProcessor {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        auth_manager: Arc<AuthManager>,
         thread_manager: Arc<ThreadManager>,
         outgoing: Arc<OutgoingMessageSender>,
         analytics_events_client: AnalyticsEventsClient,
@@ -157,7 +154,6 @@ impl TurnRequestProcessor {
         let agent_runner = AgentRunner::new(Arc::downgrade(&thread_manager));
         Self {
             agent_runner,
-            auth_manager,
             thread_manager,
             outgoing,
             analytics_events_client,
@@ -479,7 +475,7 @@ impl TurnRequestProcessor {
         app_server_client_version: Option<String>,
         supports_openai_form_elicitation: bool,
     ) -> Result<TurnStartResponse, JSONRPCErrorError> {
-        let (thread_id, thread) =
+        let (_thread_id, thread) =
             self.load_thread(&params.thread_id)
                 .await
                 .inspect_err(|error| {
