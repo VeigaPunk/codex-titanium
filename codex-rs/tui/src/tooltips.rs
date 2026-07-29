@@ -49,7 +49,13 @@ fn experimental_tooltips() -> Vec<&'static str> {
 }
 
 /// Pick a random tooltip to show to the user when starting Codex.
-pub(crate) fn get_tooltip(plan: Option<PlanType>, fast_mode_enabled: bool) -> Option<String> {
+pub(crate) fn get_tooltip(_plan: Option<PlanType>, _fast_mode_enabled: bool) -> Option<String> {
+    // Titanium: startup tooltips are permanently disabled.
+    None
+}
+
+#[allow(dead_code)]
+fn get_tooltip_disabled(plan: Option<PlanType>, fast_mode_enabled: bool) -> Option<String> {
     let mut rng = rand::rng();
 
     if let Some(announcement) = announcement::fetch_announcement_tip(plan) {

@@ -231,6 +231,16 @@ pub(super) fn select_model_availability_nux(
 }
 
 pub(super) async fn prepare_startup_tooltip_override(
+    _config: &mut Config,
+    _available_models: &[ModelPreset],
+    _is_first_run: bool,
+) -> Option<String> {
+    // Titanium: startup tooltip overrides are permanently disabled.
+    None
+}
+
+#[allow(dead_code)]
+async fn prepare_startup_tooltip_override_disabled(
     config: &mut Config,
     available_models: &[ModelPreset],
     is_first_run: bool,
@@ -270,6 +280,18 @@ pub(super) async fn prepare_startup_tooltip_override(
 }
 
 pub(super) async fn handle_model_migration_prompt_if_needed(
+    _tui: &mut tui::Tui,
+    _config: &mut Config,
+    _model: &str,
+    _app_event_tx: &AppEventSender,
+    _available_models: &[ModelPreset],
+) -> Option<AppExitInfo> {
+    // Titanium: model migration prompts are permanently disabled.
+    None
+}
+
+#[allow(dead_code)]
+async fn handle_model_migration_prompt_if_needed_disabled(
     tui: &mut tui::Tui,
     config: &mut Config,
     model: &str,
