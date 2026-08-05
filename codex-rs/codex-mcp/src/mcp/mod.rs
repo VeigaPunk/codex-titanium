@@ -307,34 +307,13 @@ fn is_trusted_chatgpt_mcp_server(
 ///
 /// Compatibility built-ins and extension overlays must already be reflected in
 /// `configured_servers`; this function does not synthesize missing servers.
+/// Titanium hard-disables every configured MCP server at runtime.
 pub fn effective_mcp_servers_from_configured(
-    configured_servers: HashMap<String, McpServerConfig>,
+    _configured_servers: HashMap<String, McpServerConfig>,
     _config: &McpConfig,
     _auth: Option<&CodexAuth>,
 ) -> HashMap<String, EffectiveMcpServer> {
-    let mut servers = configured_servers
-        .into_iter()
-        .map(|(name, mut server)| {
-            match server.auth.clone() {
-                McpServerAuth::ChatGpt => {
-                    if !is_trusted_chatgpt_mcp_server(&server.transport, &config.chatgpt_base_url) {
-                        server.auth = McpServerAuth::OAuth;
-                    }
-                }
-                McpServerAuth::OAuth => {}
-            }
-            let agent_plugin = config
-                .mcp_server_catalog
-                .server(&name)
-                .is_some_and(|server| server.source().is_agent_plugin());
-            (
-                name,
-                EffectiveMcpServer::configured(server).with_agent_plugin(agent_plugin),
-            )
-        })
-        .collect::<HashMap<_, _>>();
-    servers.remove(CODEX_APPS_MCP_SERVER_NAME);
-    servers
+    HashMap::new()
 }
 
 pub fn tool_plugin_provenance(config: &McpConfig) -> ToolPluginProvenance {
