@@ -1,7 +1,7 @@
 # Codex Titanium
 
 An opinionated source fork of OpenAI Codex CLI, currently based on
-`0.146.0-alpha.10.1` and published as `0.146.0-alpha.10.1+titanium.1`.
+`0.147.0-alpha.11` and published as `0.147.0-alpha.11+titanium.1`.
 
 Titanium changes:
 
@@ -35,11 +35,10 @@ computer-use lanes. Its authenticated web-UI adapters all use
 - **The Puppeteer** drives ChatGPT-only web UI features.
 - **The Musketeer** drives Grok-only web UI features.
 - **The Almanacker** drives NotebookLM-only web UI features.
-- **KimiHikoner** is reserved for the forthcoming Kimi K3 web UI adapter.
+- **the-kimiraikkoner** drives Kimi web UI features (CLI binary `kimiraikkoner`; not `kimi`).
 
-The first three are public DS4CC marketplace plugins. They intentionally share
-one dedicated Chrome DevTools Protocol browser and profile on loopback port
-9222.
+These DS4CC marketplace plugins intentionally share one dedicated Chrome
+DevTools Protocol browser and profile on loopback port 9222.
 
 ```shell
 cd titanium
@@ -52,7 +51,7 @@ agent-browser --cdp 9222 open https://chatgpt.com
 throwaway automation browser than reusing a personal Chrome profile. Launch it
 with `--remote-debugging-address=127.0.0.1`, `--remote-debugging-port=9222`, and
 an isolated persistent `--user-data-dir`. Sign that profile into ChatGPT, Grok,
-and NotebookLM only. Never expose its CDP port beyond loopback.
+NotebookLM, and Kimi only. Never expose its CDP port beyond loopback.
 
 The upstream npm package and Homebrew cask do **not** contain these changes.
 Install the released Titanium Rust CLI on Linux x86_64 with:

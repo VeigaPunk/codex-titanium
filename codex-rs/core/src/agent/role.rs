@@ -15,11 +15,13 @@ use anyhow::anyhow;
 use codex_config::ConfigLayerEntry;
 use codex_config::ConfigLayerSource;
 use codex_config::ConfigLayerStack;
-use codex_config::ConfigLayerStackOrdering;
 use codex_config::config_toml::ConfigToml;
 use codex_config::loader::resolve_relative_paths_in_config_toml;
 use codex_exec_server::LOCAL_FS;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::path::Path;
+use std::sync::LazyLock;
 use toml::Value as TomlValue;
 
 /// The role name used when a caller omits `agent_type`.
@@ -36,15 +38,48 @@ pub(crate) async fn apply_role_to_config(
     config: &mut Config,
     role_name: Option<&str>,
 ) -> Result<(), String> {
-    let Some(role_name) = role_name else {
-        return Ok(());
-    };
+    apply_role_to_config_with_developer_instructions(
+        config,
+        role_name,
+        RoleDeveloperInstructions::UseConfigLayers,
+    )
+    .await
+}
+
+/// Applies a v2 role without losing developer instructions selected by its caller.
+///
+/// A role's own top-level developer instructions still take precedence. When its role file omits
+/// that setting, rebuilding the config must not restore inherited instructions from older layers.
+pub(crate) async fn apply_role_to_config_for_multi_agent_v2(
+    config: &mut Config,
+    role_name: Option<&str>,
+) -> Result<(), String> {
+    apply_role_to_config_with_developer_instructions(
+        config,
+        role_name,
+        RoleDeveloperInstructions::PreserveCallerInstructions,
+    )
+    .await
+}
+
+#[derive(Clone, Copy)]
+enum RoleDeveloperInstructions {
+    UseConfigLayers,
+    PreserveCallerInstructions,
+}
+
+async fn apply_role_to_config_with_developer_instructions(
+    config: &mut Config,
+    role_name: Option<&str>,
+    developer_instructions: RoleDeveloperInstructions,
+) -> Result<(), String> {
+    let role_name = role_name.unwrap_or(DEFAULT_ROLE_NAME);
 
     let role = resolve_role_config(config, role_name)
         .cloned()
         .ok_or_else(|| format!("unknown agent_type '{role_name}'"))?;
 
-    apply_role_to_config_inner(config, role_name, &role)
+    apply_role_to_config_inner(config, role_name, &role, developer_instructions)
         .await
         .map_err(|err| {
             tracing::warn!("failed to apply role to config: {err}");
@@ -56,11 +91,13 @@ async fn apply_role_to_config_inner(
     config: &mut Config,
     role_name: &str,
     role: &AgentRoleConfig,
+    developer_instructions: RoleDeveloperInstructions,
 ) -> anyhow::Result<()> {
+    let is_built_in = !config.agent_roles.contains_key(role_name);
     let Some(config_file) = role.config_file.as_ref() else {
         return Ok(());
     };
-    let role_layer_toml = load_role_layer_toml(config_file, role_name).await?;
+    let role_layer_toml = load_role_layer_toml(config, config_file, is_built_in, role_name).await?;
     if role_layer_toml
         .as_table()
         .is_some_and(toml::map::Map::is_empty)
@@ -73,6 +110,7 @@ async fn apply_role_to_config_inner(
     *config = reload::build_next_config(
         config,
         role_layer_toml,
+        developer_instructions,
         preserve_current_provider,
         preserve_current_service_tier,
     )
@@ -81,20 +119,31 @@ async fn apply_role_to_config_inner(
 }
 
 async fn load_role_layer_toml(
-    config_file: &std::path::Path,
+    config: &Config,
+    config_file: &Path,
+    is_built_in: bool,
     role_name: &str,
 ) -> anyhow::Result<TomlValue> {
-    let role_config_contents = tokio::fs::read_to_string(config_file).await?;
-    let role_config_base = config_file
-        .parent()
-        .ok_or(anyhow!("No corresponding config content"))?;
-    let role_config_toml = parse_agent_role_file_contents(
-        &role_config_contents,
-        config_file,
-        role_config_base,
-        Some(role_name),
-    )?
-    .config;
+    let (role_config_toml, role_config_base) = if is_built_in {
+        let role_config_contents = built_in::config_file_contents(config_file)
+            .map(str::to_owned)
+            .ok_or(anyhow!("No corresponding config content"))?;
+        let role_config_toml: TomlValue = toml::from_str(&role_config_contents)?;
+        (role_config_toml, config.codex_home.as_path())
+    } else {
+        let role_config_contents = tokio::fs::read_to_string(config_file).await?;
+        let role_config_base = config_file
+            .parent()
+            .ok_or(anyhow!("No corresponding config content"))?;
+        let role_config_toml = parse_agent_role_file_contents(
+            &role_config_contents,
+            config_file,
+            role_config_base,
+            Some(role_name),
+        )?
+        .config;
+        (role_config_toml, role_config_base)
+    };
 
     deserialize_config_toml_with_base(role_config_toml.clone(), role_config_base)?;
     Ok(resolve_relative_paths_in_config_toml(
@@ -107,7 +156,10 @@ pub(crate) fn resolve_role_config<'a>(
     config: &'a Config,
     role_name: &str,
 ) -> Option<&'a AgentRoleConfig> {
-    config.agent_roles.get(role_name)
+    config
+        .agent_roles
+        .get(role_name)
+        .or_else(|| built_in::configs().get(role_name))
 }
 
 mod reload {
@@ -116,24 +168,35 @@ mod reload {
     pub(super) async fn build_next_config(
         config: &Config,
         role_layer_toml: TomlValue,
+        developer_instructions: RoleDeveloperInstructions,
         preserve_current_provider: bool,
         preserve_current_service_tier: bool,
     ) -> anyhow::Result<Config> {
         let preserve_current_model = role_layer_toml.get("model").is_none();
         let preserve_current_reasoning_effort =
             role_layer_toml.get("model_reasoning_effort").is_none();
+        let mut overrides = reload_overrides(
+            config,
+            preserve_current_model,
+            preserve_current_provider,
+            preserve_current_service_tier,
+        );
+        if let (RoleDeveloperInstructions::PreserveCallerInstructions, Some(_), None) = (
+            developer_instructions,
+            &config.multi_agent_v2.subagent_developer_instructions,
+            role_layer_toml.get("developer_instructions"),
+        ) {
+            overrides
+                .developer_instructions
+                .clone_from(&config.developer_instructions);
+        }
         let config_layer_stack = build_config_layer_stack(config, &role_layer_toml)?;
         let merged_config = deserialize_effective_config(config, &config_layer_stack)?;
 
         let mut next_config = Config::load_config_with_layer_stack(
             LOCAL_FS.as_ref(),
             merged_config,
-            reload_overrides(
-                config,
-                preserve_current_model,
-                preserve_current_provider,
-                preserve_current_service_tier,
-            ),
+            overrides,
             config.codex_home.clone(),
             config_layer_stack,
         )
@@ -172,11 +235,7 @@ mod reload {
     fn existing_layers(config: &Config) -> Vec<ConfigLayerEntry> {
         config
             .config_layer_stack
-            .get_layers(
-                ConfigLayerStackOrdering::LowestPrecedenceFirst,
-                /*include_disabled*/ true,
-            )
-            .into_iter()
+            .all_layers_low_to_high()
             .cloned()
             .collect()
     }
@@ -204,6 +263,7 @@ mod reload {
                 .flatten(),
             model_provider: preserve_current_provider.then(|| config.model_provider_id.clone()),
             service_tier: preserve_current_service_tier.then(|| config.service_tier.clone()),
+            psp: Some(config.psp),
             codex_linux_sandbox_exe: config.codex_linux_sandbox_exe.clone(),
             main_execve_wrapper_exe: config.main_execve_wrapper_exe.clone(),
             ..Default::default()
@@ -214,17 +274,29 @@ mod reload {
 pub(crate) mod spawn_tool_spec {
     use super::*;
 
-    /// Builds the spawn-agent tool description text from configured roles.
+    /// Builds the spawn-agent tool description text from built-in and configured roles.
     pub(crate) fn build(user_defined_agent_roles: &BTreeMap<String, AgentRoleConfig>) -> String {
-        build_from_configs(user_defined_agent_roles)
+        let built_in_roles = built_in::configs();
+        build_from_configs(built_in_roles, user_defined_agent_roles)
     }
 
     // This function is not inlined for testing purpose.
-    fn build_from_configs(user_defined_roles: &BTreeMap<String, AgentRoleConfig>) -> String {
-        let formatted_roles = user_defined_roles
-            .iter()
-            .map(|(name, declaration)| format_role(name, declaration))
-            .collect::<Vec<_>>();
+    fn build_from_configs(
+        built_in_roles: &BTreeMap<String, AgentRoleConfig>,
+        user_defined_roles: &BTreeMap<String, AgentRoleConfig>,
+    ) -> String {
+        let mut seen = BTreeSet::new();
+        let mut formatted_roles = Vec::new();
+        for (name, declaration) in user_defined_roles {
+            if seen.insert(name.as_str()) {
+                formatted_roles.push(format_role(name, declaration));
+            }
+        }
+        for (name, declaration) in built_in_roles {
+            if seen.insert(name.as_str()) {
+                formatted_roles.push(format_role(name, declaration));
+            }
+        }
 
         format!("Available roles:\n{}", formatted_roles.join("\n"))
     }
@@ -234,7 +306,11 @@ pub(crate) mod spawn_tool_spec {
             let locked_settings_note = declaration
                 .config_file
                 .as_ref()
-                .and_then(|config_file| std::fs::read_to_string(config_file).ok())
+                .and_then(|config_file| {
+                    built_in::config_file_contents(config_file)
+                        .map(str::to_owned)
+                        .or_else(|| std::fs::read_to_string(config_file).ok())
+                })
                 .and_then(|contents| toml::from_str::<TomlValue>(&contents).ok())
                 .map(|role_toml| {
                     let model = role_toml
@@ -276,6 +352,85 @@ pub(crate) mod spawn_tool_spec {
             format!("{name}: {{\n{description}{locked_settings_note}\n}}")
         } else {
             format!("{name}: no description")
+        }
+    }
+}
+
+mod built_in {
+    use super::*;
+
+    /// Returns the cached built-in role declarations defined in this module.
+    pub(super) fn configs() -> &'static BTreeMap<String, AgentRoleConfig> {
+        static CONFIG: LazyLock<BTreeMap<String, AgentRoleConfig>> = LazyLock::new(|| {
+            BTreeMap::from([
+                (
+                    DEFAULT_ROLE_NAME.to_string(),
+                    AgentRoleConfig {
+                        description: Some("Default agent.".to_string()),
+                        config_file: None,
+                        nickname_candidates: None,
+                    }
+                ),
+                (
+                    "explorer".to_string(),
+                    AgentRoleConfig {
+                        description: Some(r#"Use `explorer` for specific codebase questions.
+Explorers are fast and authoritative.
+They must be used to ask specific, well-scoped questions on the codebase.
+Rules:
+- In order to avoid redundant work, you should avoid exploring the same problem that explorers have already covered. Typically, you should trust the explorer results without additional verification. You are still allowed to inspect the code yourself to gain the needed context!
+- You are encouraged to spawn up multiple explorers in parallel when you have multiple distinct questions to ask about the codebase that can be answered independently. This allows you to get more information faster without waiting for one question to finish before asking the next. While waiting for the explorer results, you can continue working on other local tasks that do not depend on those results. This parallelism is a key advantage of delegation, so use it whenever you have multiple questions to ask.
+- Reuse existing explorers for related questions."#.to_string()),
+                        config_file: Some("explorer.toml".to_string().parse().unwrap_or_default()),
+                        nickname_candidates: None,
+                    }
+                ),
+                (
+                    "worker".to_string(),
+                    AgentRoleConfig {
+                        description: Some(r#"Use for execution and production work.
+Typical tasks:
+- Implement part of a feature
+- Fix tests or bugs
+- Split large refactors into independent chunks
+Rules:
+- Explicitly assign **ownership** of the task (files / responsibility). When the subtask involves code changes, you should clearly specify which files or modules the worker is responsible for. This helps avoid merge conflicts and ensures accountability. For example, you can say "Worker 1 is responsible for updating the authentication module, while Worker 2 will handle the database layer." By defining clear ownership, you can delegate more effectively and reduce coordination overhead.
+- Always tell workers they are **not alone in the codebase**, and they should not revert the edits made by others, and they should adjust their implementation to accommodate the changes made by others. This is important because there may be multiple workers making changes in parallel, and they need to be aware of each other's work to avoid conflicts and ensure a cohesive final product."#.to_string()),
+                        config_file: None,
+                        nickname_candidates: None,
+                    }
+                ),
+                // Awaiter is temp removed
+//                 (
+//                     "awaiter".to_string(),
+//                     AgentRoleConfig {
+//                         description: Some(r#"Use an `awaiter` agent EVERY TIME you must run a command that will take some very long time.
+// This includes, but not only:
+// * testing
+// * monitoring of a long running process
+// * explicit ask to wait for something
+//
+// Rules:
+// - When an awaiter is running, you can work on something else. If you need to wait for its completion, use the largest possible timeout.
+// - Be patient with the `awaiter`.
+// - Do not use an awaiter for every compilation/test if it won't take time. Only use if for long running commands.
+// - Close the awaiter when you're done with it."#.to_string()),
+//                         config_file: Some("awaiter.toml".to_string().parse().unwrap_or_default()),
+//                     }
+//                 )
+            ])
+        });
+        &CONFIG
+    }
+
+    /// Resolves a built-in role `config_file` path to embedded content.
+    pub(super) fn config_file_contents(path: &Path) -> Option<&'static str> {
+        const EXPLORER: &str = include_str!("builtins/explorer.toml");
+        const AWAITER: &str = include_str!("builtins/awaiter.toml");
+        match path.to_str()? {
+            "explorer.toml" => Some(EXPLORER),
+            "awaiter.toml" => Some(AWAITER),
+            _ => None,
         }
     }
 }

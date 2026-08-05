@@ -4,7 +4,9 @@ use crate::config::ConfigOverrides;
 use crate::config::Constrained;
 use crate::config::ManagedFeatures;
 use crate::config::NetworkProxySpec;
+use crate::config::PermissionProfileSnapshot;
 use crate::config::test_config;
+use crate::environment_selection::TurnEnvironmentState;
 use crate::guardian::approval_request::guardian_request_target_item_id;
 use crate::guardian::prompt::BUNDLED_GUARDIAN_POLICY;
 use crate::guardian::prompt::BUNDLED_GUARDIAN_POLICY_TEMPLATE;
@@ -12,6 +14,7 @@ use crate::guardian::prompt::guardian_policy_prompt_with_config_and_template;
 use crate::guardian::review::guardian_review_session_config;
 use crate::session::session::Session;
 use crate::session::turn_context::TurnContext;
+use crate::session::turn_context::TurnEnvironment;
 use crate::test_support;
 use codex_analytics::GuardianApprovalRequestSource;
 use codex_config::ConfigLayerStack;
@@ -55,6 +58,7 @@ use codex_protocol::protocol::GuardianUserAuthorization;
 use codex_protocol::protocol::ReviewDecision;
 use codex_protocol::protocol::RolloutItem;
 use codex_protocol::protocol::TurnCompleteEvent;
+use codex_utils_path_uri::PathUri;
 use core_test_support::PathBufExt;
 use core_test_support::TempDirExt;
 use core_test_support::context_snapshot;
@@ -79,11 +83,56 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tempfile::TempDir;
 use tokio_util::sync::CancellationToken;
 
 fn fixed_guardian_parent_session_id() -> ThreadId {
     ThreadId::from_string("11111111-1111-4111-8111-111111111111")
         .expect("fixed parent session id should be a valid UUID")
+}
+
+const GUARDIAN_MEMORY_CONTEXT_PROBE: &str = "guardian memory context probe";
+const GUARDIAN_SKILL_NAME: &str = "guardian-context-probe";
+const GUARDIAN_SKILL_BODY_PROBE: &str = "guardian skill body probe";
+
+// The memories extension depends on codex-core, so this probe verifies the nested Guardian config
+// at request assembly without introducing a circular test dependency.
+struct GuardianMemoryContextEnabled(bool);
+
+struct GuardianMemoryContextProbe;
+
+impl codex_extension_api::ThreadLifecycleContributor<Config> for GuardianMemoryContextProbe {
+    fn on_thread_start<'a>(
+        &'a self,
+        input: codex_extension_api::ThreadStartInput<'a, Config>,
+    ) -> codex_extension_api::ExtensionFuture<'a, ()> {
+        Box::pin(async move {
+            input.thread_store.insert(GuardianMemoryContextEnabled(
+                input.config.memories.use_memories,
+            ));
+        })
+    }
+}
+
+impl codex_extension_api::ContextContributor for GuardianMemoryContextProbe {
+    fn contribute_thread_context<'a>(
+        &'a self,
+        _session_store: &'a codex_extension_api::ExtensionData,
+        thread_store: &'a codex_extension_api::ExtensionData,
+    ) -> codex_extension_api::ExtensionFuture<'a, Vec<codex_extension_api::PromptFragment>> {
+        Box::pin(async move {
+            if thread_store
+                .get::<GuardianMemoryContextEnabled>()
+                .is_some_and(|enabled| enabled.0)
+            {
+                vec![codex_extension_api::PromptFragment::developer_policy(
+                    GUARDIAN_MEMORY_CONTEXT_PROBE,
+                )]
+            } else {
+                Vec::new()
+            }
+        })
+    }
 }
 
 #[test]
@@ -263,6 +312,7 @@ async fn seed_guardian_parent_history(session: &Arc<Session>, turn: &Arc<TurnCon
                     namespace: None,
                     arguments: "{\"repo\":\"openai/codex\"}".to_string(),
                     call_id: "call-1".to_string(),
+                    encrypted_function_args: None,
                     internal_chat_message_metadata_passthrough: None,
                 },
                 ResponseItem::FunctionCallOutput {
@@ -416,12 +466,94 @@ async fn build_guardian_prompt_full_mode_preserves_initial_review_format() -> an
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn build_guardian_prompt_prefers_retry_reason_over_approval_reason() -> anyhow::Result<()> {
+    let (session, turn) = guardian_test_session_and_turn_with_base_url("http://localhost").await;
+    seed_guardian_parent_history(&session, &turn).await;
+
+    let prompt = build_guardian_prompt_items_with_parent_turn(
+        session.as_ref(),
+        Some(turn.as_ref()),
+        ApprovalRequestReasons {
+            approval: Some("A policy rule requires approval.".to_string()),
+            retry: Some("The sandbox blocked the initial command.".to_string()),
+        },
+        GuardianApprovalRequest::Shell {
+            id: "shell-1".to_string(),
+            command: vec!["git".to_string(), "push".to_string()],
+            cwd: test_path_buf("/repo/codex-rs/core").abs(),
+            sandbox_permissions: crate::sandboxing::SandboxPermissions::UseDefault,
+            additional_permissions: None,
+            justification: None,
+        },
+        GuardianPromptMode::Full,
+    )
+    .await?;
+
+    let text = guardian_prompt_text(&prompt.items);
+    assert!(text.contains("Retry reason:\nThe sandbox blocked the initial command.\n\n"));
+    assert!(!text.contains("A policy rule requires approval."));
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn build_guardian_prompt_truncates_oversized_approval_reason() -> anyhow::Result<()> {
+    let (session, turn) = guardian_test_session_and_turn_with_base_url("http://localhost").await;
+    seed_guardian_parent_history(&session, &turn).await;
+    let approval_reason = format!("policy-start {} policy-end", "x".repeat(10_000));
+    let expected_reason = codex_utils_output_truncation::truncate_text(
+        &approval_reason,
+        codex_utils_output_truncation::TruncationPolicy::Tokens(/*tokens*/ 512),
+    );
+
+    let prompt = build_guardian_prompt_items_with_parent_turn(
+        session.as_ref(),
+        Some(turn.as_ref()),
+        ApprovalRequestReasons {
+            approval: Some(approval_reason),
+            retry: None,
+        },
+        GuardianApprovalRequest::Shell {
+            id: "shell-1".to_string(),
+            command: vec!["git".to_string(), "push".to_string()],
+            cwd: test_path_buf("/repo/codex-rs/core").abs(),
+            sandbox_permissions: crate::sandboxing::SandboxPermissions::UseDefault,
+            additional_permissions: None,
+            justification: None,
+        },
+        GuardianPromptMode::Full,
+    )
+    .await?;
+
+    let reason_item = prompt
+        .items
+        .iter()
+        .find_map(|item| match item {
+            codex_protocol::user_input::UserInput::Text { text, .. }
+                if text.contains("tokens truncated") =>
+            {
+                Some(text)
+            }
+            _ => None,
+        })
+        .expect("oversized approval reason should include a truncation marker");
+    assert!(reason_item.starts_with("policy-start"));
+    assert!(reason_item.ends_with("policy-end\n\n"));
+    assert_eq!(reason_item, &format!("{expected_reason}\n\n"));
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn build_guardian_prompt_includes_parent_turn_denied_reads() -> anyhow::Result<()> {
     let (mut session, mut turn) = crate::session::tests::make_session_and_context().await;
     session.thread_id = fixed_guardian_parent_session_id();
-    let denied_root = test_path_buf("/repo/private").abs();
+    let workspace_root = test_path_buf("/repo").abs();
+    let second_workspace_root = test_path_buf("/another-repo").abs();
+    let denied_root = workspace_root.join("private");
+    let second_denied_root = second_workspace_root.join("private");
     let denied_glob = test_path_buf("/repo/private/**").display().to_string();
-    turn.permission_profile = PermissionProfile::from_runtime_permissions(
+    let environment_permission_profile = PermissionProfile::from_runtime_permissions(
         &FileSystemSandboxPolicy::restricted(vec![
             FileSystemSandboxEntry {
                 path: FileSystemPath::Special {
@@ -431,8 +563,10 @@ async fn build_guardian_prompt_includes_parent_turn_denied_reads() -> anyhow::Re
                 missing_path_behavior: None,
             },
             FileSystemSandboxEntry {
-                path: FileSystemPath::Path {
-                    path: denied_root.clone(),
+                path: FileSystemPath::Special {
+                    value: codex_protocol::permissions::FileSystemSpecialPath::project_roots(Some(
+                        "private".to_string(),
+                    )),
                 },
                 access: FileSystemAccessMode::Deny,
                 missing_path_behavior: None,
@@ -447,6 +581,22 @@ async fn build_guardian_prompt_includes_parent_turn_denied_reads() -> anyhow::Re
         ]),
         NetworkSandboxPolicy::Restricted,
     );
+    let TurnEnvironmentState::Ready(environment) = &mut turn.environments.environments[0] else {
+        panic!("parent environment should be ready");
+    };
+    environment.config.permission_profile =
+        PermissionProfileSnapshot::legacy(environment_permission_profile);
+    *environment = TurnEnvironment::new(
+        environment.environment_id.clone(),
+        Arc::clone(&environment.environment),
+        environment.cwd().clone(),
+        vec![
+            PathUri::from_abs_path(&workspace_root),
+            PathUri::from_abs_path(&second_workspace_root),
+        ],
+        environment.shell.clone(),
+        environment.config.clone(),
+    );
     let session = Arc::new(session);
     let turn = Arc::new(turn);
     seed_guardian_parent_history(&session, &turn).await;
@@ -454,7 +604,10 @@ async fn build_guardian_prompt_includes_parent_turn_denied_reads() -> anyhow::Re
     let prompt = build_guardian_prompt_items_with_parent_turn(
         session.as_ref(),
         Some(turn.as_ref()),
-        Some("Sandbox denied reading /repo/private/secret.txt.".to_string()),
+        ApprovalRequestReasons {
+            approval: None,
+            retry: Some("Sandbox denied reading /repo/private/secret.txt.".to_string()),
+        },
         GuardianApprovalRequest::Shell {
             id: "shell-1".to_string(),
             command: vec!["cat".to_string(), "/repo/private/secret.txt".to_string()],
@@ -471,6 +624,7 @@ async fn build_guardian_prompt_includes_parent_turn_denied_reads() -> anyhow::Re
     assert!(text.contains("PARENT TURN PERMISSION CONTEXT START"));
     assert!(text.contains("do not approve escalation whose purpose is to read them"));
     assert!(text.contains(denied_root.to_string_lossy().as_ref()));
+    assert!(text.contains(second_denied_root.to_string_lossy().as_ref()));
     assert!(text.contains(&format!("glob `{denied_glob}`")));
 
     Ok(())
@@ -785,6 +939,7 @@ fn collect_guardian_transcript_entries_includes_recent_tool_calls_and_output() {
             namespace: None,
             arguments: "{\"path\":\"README.md\"}".to_string(),
             call_id: "call-1".to_string(),
+            encrypted_function_args: None,
             internal_chat_message_metadata_passthrough: None,
         },
         ResponseItem::FunctionCallOutput {
@@ -1195,7 +1350,9 @@ async fn routes_approval_to_guardian_allows_granular_review_policy() {
     let mut config = (*turn.config).clone();
     config.approvals_reviewer = ApprovalsReviewer::AutoReview;
     turn.config = Arc::new(config);
-    turn.approval_policy
+    Arc::make_mut(&mut turn.config)
+        .permissions
+        .approval_policy
         .set(AskForApproval::Granular(GranularApprovalConfig {
             sandbox_approval: true,
             rules: true,
@@ -1431,6 +1588,7 @@ async fn guardian_request_model_for_auto_review(
         .auto_review_model_override = auto_review_model_override;
     let parent_model = turn.model_info.slug.clone();
     let preferred_model = turn.provider.approval_review_preferred_model().to_string();
+    let parent_turn_id = turn.sub_id.clone();
     seed_guardian_parent_history(&session, &turn).await;
 
     let (outcome, analytics_result) = run_guardian_review_session_for_test(
@@ -1444,7 +1602,10 @@ async fn guardian_request_model_for_auto_review(
             additional_permissions: None,
             justification: None,
         },
-        Some("Sandbox denied outbound git push to github.com.".to_string()),
+        ApprovalRequestReasons {
+            approval: None,
+            retry: Some("Sandbox denied outbound git push to github.com.".to_string()),
+        },
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 1,
@@ -1455,8 +1616,9 @@ async fn guardian_request_model_for_auto_review(
     };
 
     let request = request_log.single_request();
-    let request_model = request
-        .body_json()
+    let request_body = request.body_json();
+    core_test_support::responses::assert_parent_turn(&request_body, Some(parent_turn_id.as_str()))?;
+    let request_model = request_body
         .get("model")
         .and_then(|value| value.as_str())
         .expect("guardian request should include a model")
@@ -1586,6 +1748,220 @@ async fn guardian_review_records_missing_auto_review_model_in_analytics_metadata
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn guardian_review_request_layout_matches_model_visible_request_snapshot()
+-> anyhow::Result<()> {
+    skip_if_no_network!(Ok(()));
+
+    let server = start_mock_server().await;
+    let guardian_assessment = serde_json::json!({
+        "risk_level": "medium",
+        "user_authorization": "high",
+        "outcome": "allow",
+        "rationale": "The user explicitly requested pushing the reviewed branch to the known remote.",
+    })
+    .to_string();
+    let request_log = mount_sse_once(
+        &server,
+        sse(vec![
+            ev_response_created("resp-guardian"),
+            ev_assistant_message("msg-guardian", &guardian_assessment),
+            ev_completed("resp-guardian"),
+        ]),
+    )
+    .await;
+
+    let (mut session, mut turn) = crate::session::tests::make_session_and_context().await;
+    session.thread_id = fixed_guardian_parent_session_id();
+    let temp_cwd = TempDir::new()?;
+    let mut config = (*turn.config).clone();
+    config.cwd = temp_cwd.abs();
+    config.model_provider.base_url = Some(format!("{}/v1", server.uri()));
+    config.memories.use_memories = true;
+    config
+        .features
+        .enable(Feature::MemoryTool)
+        .expect("memory tool feature is configurable");
+    let config = Arc::new(config);
+    let models_manager = test_support::models_manager_with_provider(
+        config.codex_home.to_path_buf(),
+        Arc::clone(&session.services.auth_manager),
+        config.model_provider.clone(),
+    );
+    session.services.models_manager = models_manager;
+    let memory_extension = Arc::new(GuardianMemoryContextProbe);
+    let mut extensions = codex_extension_api::ExtensionRegistryBuilder::<Config>::new();
+    extensions.thread_lifecycle_contributor(memory_extension.clone());
+    extensions.prompt_contributor(memory_extension);
+    session.services.extensions = Arc::new(extensions.build());
+
+    let skill_dir = config
+        .codex_home
+        .to_path_buf()
+        .join("skills")
+        .join(GUARDIAN_SKILL_NAME);
+    std::fs::create_dir_all(&skill_dir)?;
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        format!(
+            "---\nname: {GUARDIAN_SKILL_NAME}\ndescription: Guardian skill injection probe.\n---\n\n{GUARDIAN_SKILL_BODY_PROBE}\n"
+        ),
+    )?;
+    session.services.skills_service.clear_cache();
+    turn.config = Arc::clone(&config);
+    turn.provider = create_model_provider(config.model_provider.clone(), turn.auth_manager.clone());
+    turn.model_info.auto_review_model_override = Some("codex-auto-review".to_string());
+    let session = Arc::new(session);
+    let turn = Arc::new(turn);
+    seed_guardian_parent_history(&session, &turn).await;
+    session
+        .record_conversation_items(
+            turn.as_ref(),
+            &[ResponseItem::Message {
+                id: None,
+                role: "user".to_string(),
+                content: vec![ContentItem::InputText {
+                    text: format!(
+                        "Use ${GUARDIAN_SKILL_NAME} before deciding whether the push is safe."
+                    ),
+                }],
+                phase: None,
+                internal_chat_message_metadata_passthrough: None,
+            }],
+        )
+        .await;
+
+    let request = GuardianApprovalRequest::Shell {
+        id: "shell-1".to_string(),
+        command: vec![
+            "git".to_string(),
+            "push".to_string(),
+            "origin".to_string(),
+            "guardian-approval-mvp".to_string(),
+        ],
+        cwd: test_path_buf("/repo/codex-rs/core").abs(),
+        sandbox_permissions: crate::sandboxing::SandboxPermissions::UseDefault,
+        additional_permissions: None,
+        justification: Some("Need to push the reviewed docs fix to the repo remote.".to_string()),
+    };
+
+    let outcome = run_guardian_review_session_for_test(
+        Arc::clone(&session),
+        Arc::clone(&turn),
+        request,
+        ApprovalRequestReasons {
+            approval: None,
+            retry: Some("Sandbox denied outbound git push to github.com.".to_string()),
+        },
+        guardian_output_schema(),
+        /*external_cancel*/ None,
+        /*max_attempts*/ 1,
+    )
+    .await;
+    let (GuardianReviewOutcome::Completed(assessment), metadata) = outcome else {
+        panic!("expected guardian assessment");
+    };
+    let guardian_thread_id = metadata
+        .guardian_thread_id
+        .as_deref()
+        .expect("guardian thread id");
+    assert_eq!(assessment.outcome, GuardianAssessmentOutcome::Allow);
+    assert_ne!(guardian_thread_id, session.thread_id.to_string());
+    ThreadId::from_string(guardian_thread_id).expect("guardian thread id should be a valid UUID");
+    assert!(matches!(
+        metadata.guardian_session_kind,
+        Some(codex_analytics::GuardianReviewSessionKind::TrunkNew)
+    ));
+    let request = request_log.single_request();
+    let request_body = request.body_json();
+    let guardian_tool_names = request_body["tools"]
+        .as_array()
+        .expect("guardian request tools")
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("guardian request tool name"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        guardian_tool_names,
+        vec!["exec_command", "write_stdin", "view_image"]
+    );
+    let guardian_user_text = request.message_input_texts("user").join("\n");
+    assert!(
+        guardian_user_text.contains(&format!("${GUARDIAN_SKILL_NAME}")),
+        "guardian request should contain the untrusted skill mention from the parent transcript"
+    );
+    assert!(
+        !request.body_contains_text(GUARDIAN_SKILL_BODY_PROBE),
+        "guardian request should not inject a skill body from its generated review prompt"
+    );
+    assert!(
+        !request.body_contains_text(GUARDIAN_MEMORY_CONTEXT_PROBE),
+        "guardian request should not include memory context"
+    );
+    assert_eq!(
+        request_body.pointer("/text/format/strict"),
+        Some(&serde_json::json!(false))
+    );
+    assert_eq!(
+        request_body.pointer("/text/format/schema"),
+        Some(&serde_json::json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "risk_level": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "critical"]
+                },
+                "user_authorization": {
+                    "type": "string",
+                    "enum": ["unknown", "low", "medium", "high"]
+                },
+                "outcome": {
+                    "type": "string",
+                    "enum": ["allow", "deny"]
+                },
+                "rationale": {
+                    "type": "string"
+                }
+            },
+            "required": ["outcome"]
+        }))
+    );
+    let request_model = request_body
+        .get("model")
+        .and_then(|value| value.as_str())
+        .expect("guardian request should include a model");
+    let request_reasoning_effort = request_body
+        .get("reasoning")
+        .and_then(|reasoning| reasoning.get("effort"))
+        .and_then(|value| value.as_str());
+    assert_eq!(metadata.guardian_model.as_deref(), Some(request_model));
+    assert_eq!(
+        metadata.guardian_reasoning_effort.as_deref(),
+        request_reasoning_effort
+    );
+    assert_eq!(metadata.had_prior_review_context, Some(false));
+    assert!(
+        metadata.time_to_first_token_ms.is_some(),
+        "guardian review metadata should capture TTFT when the nested turn completes"
+    );
+
+    let mut settings = Settings::clone_current();
+    settings.set_snapshot_path("snapshots");
+    settings.set_prepend_module_to_snapshot(false);
+    settings.bind(|| {
+        assert_snapshot!(
+            "codex_core__guardian__tests__guardian_review_request_layout",
+            normalize_guardian_snapshot_paths(context_snapshot::format_labeled_requests_snapshot(
+                "Guardian review request layout",
+                &[("Guardian Review Request", &request)],
+                &guardian_snapshot_options(),
+            ))
+        );
+    });
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn build_guardian_prompt_items_includes_parent_session_id() -> anyhow::Result<()> {
     let (session, _) = crate::session::tests::make_session_and_context().await;
@@ -1663,7 +2039,11 @@ async fn guardian_reuses_prompt_cache_key_and_appends_prior_reviews() -> anyhow:
     )
     .await;
 
-    let (session, turn) = guardian_test_session_and_turn(&server).await;
+    let (session, mut turn) = guardian_test_session_and_turn(&server).await;
+    Arc::get_mut(&mut turn)
+        .expect("turn should be unique")
+        .model_info
+        .auto_review_model_override = Some("codex-auto-review".to_string());
     seed_guardian_parent_history(&session, &turn).await;
 
     let first_request = GuardianApprovalRequest::Shell {
@@ -1678,7 +2058,10 @@ async fn guardian_reuses_prompt_cache_key_and_appends_prior_reviews() -> anyhow:
         Arc::clone(&session),
         Arc::clone(&turn),
         first_request,
-        Some("First retry reason".to_string()),
+        ApprovalRequestReasons {
+            approval: None,
+            retry: Some("First retry reason".to_string()),
+        },
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 1,
@@ -1725,7 +2108,10 @@ async fn guardian_reuses_prompt_cache_key_and_appends_prior_reviews() -> anyhow:
         Arc::clone(&session),
         Arc::clone(&turn),
         second_request,
-        Some("Second retry reason".to_string()),
+        ApprovalRequestReasons {
+            approval: None,
+            retry: Some("Second retry reason".to_string()),
+        },
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 1,
@@ -1768,7 +2154,10 @@ async fn guardian_reuses_prompt_cache_key_and_appends_prior_reviews() -> anyhow:
         Arc::clone(&session),
         Arc::clone(&turn),
         third_request,
-        Some("Third retry reason".to_string()),
+        ApprovalRequestReasons {
+            approval: None,
+            retry: Some("Third retry reason".to_string()),
+        },
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 1,
@@ -1960,7 +2349,7 @@ async fn guardian_reused_trunk_ignores_stale_prior_turn_completion() -> anyhow::
             additional_permissions: None,
             justification: Some("Need to push the first docs fix.".to_string()),
         },
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 1,
@@ -2005,7 +2394,7 @@ async fn guardian_reused_trunk_ignores_stale_prior_turn_completion() -> anyhow::
             additional_permissions: None,
             justification: Some("Need to push the second docs fix.".to_string()),
         },
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 1,
@@ -2085,7 +2474,7 @@ async fn guardian_review_surfaces_responses_api_errors_in_rejection_reason() -> 
             additional_permissions: None,
             justification: Some("Need to push the reviewed docs fix.".to_string()),
         },
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
     )
     .await;
 
@@ -2171,7 +2560,7 @@ async fn guardian_review_retries_transient_session_failure_then_approves() -> an
         Arc::clone(&session),
         Arc::clone(&turn),
         guardian_shell_request("shell-session-retry"),
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 3,
@@ -2213,7 +2602,7 @@ async fn guardian_review_does_not_retry_missing_assessment_payload() -> anyhow::
         &turn,
         "review-missing-assessment".to_string(),
         guardian_shell_request("shell-missing-assessment"),
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
     )
     .await;
 
@@ -2262,7 +2651,7 @@ async fn guardian_review_retries_two_parse_failures_then_approves() -> anyhow::R
         Arc::clone(&session),
         Arc::clone(&turn),
         guardian_shell_request("shell-parse-retry"),
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
         guardian_output_schema(),
         /*external_cancel*/ None,
         /*max_attempts*/ 3,
@@ -2317,7 +2706,7 @@ async fn guardian_review_exhausts_three_failures_with_one_terminal_event() -> an
         &turn,
         "review-exhausted-retry".to_string(),
         guardian_shell_request("shell-exhausted-retry"),
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
     )
     .await;
 
@@ -2368,7 +2757,7 @@ async fn guardian_review_does_not_retry_valid_denial() -> anyhow::Result<()> {
         &turn,
         "review-valid-denial".to_string(),
         guardian_shell_request("shell-valid-denial"),
-        /*retry_reason*/ None,
+        ApprovalRequestReasons::default(),
     )
     .await;
 
@@ -2471,7 +2860,7 @@ async fn guardian_ephemeral_retry_preserves_parallel_trunk_and_fork_history() ->
                 &turn,
                 "review-shell-guardian-1".to_string(),
                 initial_request,
-                /*retry_reason*/ None
+                ApprovalRequestReasons::default()
             )
             .await,
             ReviewDecision::Approved
@@ -2525,7 +2914,10 @@ async fn guardian_ephemeral_retry_preserves_parallel_trunk_and_fork_history() ->
                 &turn_for_second,
                 "review-shell-guardian-2".to_string(),
                 second_request,
-                Some("trunk follow-up".to_string()),
+                ApprovalRequestReasons {
+                    approval: None,
+                    retry: Some("trunk follow-up".to_string()),
+                },
             )
             .await
         });
@@ -2572,7 +2964,10 @@ async fn guardian_ephemeral_retry_preserves_parallel_trunk_and_fork_history() ->
             &turn,
             "review-shell-guardian-3".to_string(),
             third_request,
-            Some("parallel follow-up".to_string()),
+            ApprovalRequestReasons {
+                approval: None,
+                retry: Some("parallel follow-up".to_string()),
+            },
         )
         .await;
         assert_eq!(third_decision, ReviewDecision::Approved);

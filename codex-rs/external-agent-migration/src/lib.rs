@@ -52,7 +52,10 @@ use mcp::external_agent_project_config_file;
 #[cfg(test)]
 use mcp::parse_env_placeholder;
 pub use rewrite::RewriteProfile;
+pub use service::DetectedConnectorCandidate;
+pub use service::DetectedConnectorSource;
 pub use service::ExternalAgentConfigDetectOptions;
+pub use service::ExternalAgentConfigDetection;
 pub use service::ExternalAgentConfigImportItemResult;
 pub use service::ExternalAgentConfigImportOutcome;
 pub use service::ExternalAgentConfigImportRawError;
