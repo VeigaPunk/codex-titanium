@@ -440,6 +440,7 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         show_raw_agent_reasoning: oss.then_some(true),
         ephemeral: ephemeral.then_some(true),
         bypass_hook_trust: bypass_hook_trust.then_some(true),
+        tools_web_search_request: None,
         psp: Some(psp),
         additional_writable_roots: add_dir,
     };

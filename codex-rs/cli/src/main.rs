@@ -1,3 +1,4 @@
+#![recursion_limit = "512"]
 use clap::Args;
 use clap::CommandFactory;
 use clap::Parser;

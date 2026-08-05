@@ -42,6 +42,8 @@ pub(crate) struct SessionState {
     pub(crate) pending_session_start_sources: VecDeque<codex_hooks::SessionStartSource>,
     granted_permissions_by_environment_id: HashMap<String, AdditionalPermissionProfile>,
     next_turn_is_first: bool,
+    /// Names of MCP skill dependencies already prompted this session (Titanium inert).
+    pub(crate) mcp_dependency_prompted: HashSet<String>,
 }
 
 impl SessionState {
@@ -73,6 +75,7 @@ impl SessionState {
             pending_session_start_sources: VecDeque::new(),
             granted_permissions_by_environment_id: HashMap::new(),
             next_turn_is_first: true,
+            mcp_dependency_prompted: HashSet::new(),
         }
     }
 
@@ -98,6 +101,18 @@ impl SessionState {
     pub(crate) fn set_next_turn_is_first(&mut self, value: bool) {
         self.next_turn_is_first = value;
     }
+
+    pub(crate) fn record_mcp_dependency_prompted<I>(&mut self, names: I)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        self.mcp_dependency_prompted.extend(names);
+    }
+
+    pub(crate) fn mcp_dependency_prompted(&self) -> HashSet<String> {
+        self.mcp_dependency_prompted.clone()
+    }
+
 
     pub(crate) fn take_next_turn_is_first(&mut self) -> bool {
         let is_first_turn = self.next_turn_is_first;

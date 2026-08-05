@@ -6,6 +6,7 @@ mod hooks_cla;
 mod hooks_common;
 mod hooks_cur;
 mod mcp;
+mod memory_import;
 mod migration_source;
 mod model;
 mod plugins;
