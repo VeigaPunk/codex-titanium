@@ -69,7 +69,8 @@ enabled = true
 [plugins."myskills@ds4cc"]
 enabled = true
 
-[plugins."agent-wall@ds4cc"]
+# agent-wall@ds4cc is not a marketplace plugin (plazir18 product); removed.
+[plugins."sekhmet@ds4cc"]
 enabled = true
 
 [plugins."the-puppeteer@ds4cc"]
@@ -79,6 +80,10 @@ enabled = true
 enabled = true
 
 [plugins."the-almanacker@ds4cc"]
+enabled = true
+
+# Marketplace plugin id is the-kimiraikoner; product/repo the-kimiraikkoner.
+[plugins."the-kimiraikoner@ds4cc"]
 enabled = true
 
 [plugins."ds4cc@ds4cc"]

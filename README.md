@@ -35,7 +35,9 @@ computer-use lanes. Its authenticated web-UI adapters all use
 - **The Puppeteer** drives ChatGPT-only web UI features.
 - **The Musketeer** drives Grok-only web UI features.
 - **The Almanacker** drives NotebookLM-only web UI features.
-- **the-kimiraikkoner** drives Kimi web UI features (CLI binary `kimiraikkoner`; not `kimi`).
+- **[the-kimiraikkoner](https://github.com/VeigaPunk/the-kimiraikkoner)** drives Kimi web UI
+  features (product/repo spelling; CLI binary `kimiraikkoner`; DS4CC plugin id
+  `the-kimiraikoner@ds4cc`; not `kimi`, not `KimiHikoner`).
 
 These DS4CC marketplace plugins intentionally share one dedicated Chrome
 DevTools Protocol browser and profile on loopback port 9222.
