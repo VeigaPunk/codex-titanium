@@ -1,0 +1,22 @@
+product-titanium evidence 2026-08-05T16:43:06-03:00
+branch: titanium/0.147.0-alpha.11-titanium.1
+match titanium/*: titanium/0.147.0-alpha.11-titanium.1
+yes
+--- dead plugin key ---
+OK_no_agent_wall_plugin_block
+--- live plugins ---
+63:[plugins."myagents@ds4cc"]
+73:[plugins."sekhmet@ds4cc"]
+86:[plugins."the-kimiraikoner@ds4cc"]
+--- README product naming ---
+38:- **[the-kimiraikkoner](https://github.com/VeigaPunk/the-kimiraikkoner)** drives Kimi web UI
+39:  features (product/repo spelling; CLI binary `kimiraikkoner`; DS4CC plugin id
+40:  `the-kimiraikoner@ds4cc`; not `kimi`, not `KimiHikoner`).
+OK_no_KimiHikoner_as_name
+--- changed files only ---
+README.md
+titanium/config.toml
+Cargo.lock dirty?
+OK_no_Cargo.lock
+---
+PASS
